@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # 1. 訊息佇列 (Message Broker)
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  # 2. 前端 API (接收請求, 不做重運算)
+  api:
+    build: ./api
+    ports:
+      - "8000:8000"
+    volumes:
+      - shared_data:/app/data  # 掛載共享儲存區
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+
+  # 3. 後端 Worker (執行重運算)
+  worker:
+    build: ./worker
+    volumes:
+      - shared_data:/app/data  # 掛載共享儲存區
+      - huggingface_cache:/root/.cache/huggingface # 快取模型，避免重啟重複下載
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      # 強制設定 worker 內使用 CPU，避免嘗試呼叫不存在的 GPU 驅動
+      - CUDA_VISIBLE_DEVICES=""
+    depends_on:
+      - redis
+    # 這裡可以透過 scale 擴展 worker 數量，例如: docker-compose up --scale worker=3
+    command: celery -A tasks worker --loglevel=info --concurrency=1
+
+volumes:
+  shared_data:
+  huggingface_cache:

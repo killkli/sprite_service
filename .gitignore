@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+venv/
+.venv/
+
+# Docker / Service Data
+data/
+huggingface_cache/
+.DS_Store
+
+# Editor
+.vscode/
+.idea/

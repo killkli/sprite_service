@@ -1,0 +1,19 @@
+# 基礎依賴
+celery[redis]
+redis
+numpy
+pillow
+requests
+
+# 影像處理依賴 (使用 headless 版本避免需要 GUI lib)
+opencv-python-headless
+
+# AI 模型依賴
+# 指定 CPU 版本的 PyTorch URL 以減少 Image 大小
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+torchvision
+transformers
+huggingface_hub
+timm
+accelerate
