@@ -8,10 +8,11 @@ services:
       - "6379:6379"
 
   # 2. 前端 API (接收請求, 不做重運算)
+  # SECURITY: Port 8000 removed from host exposure. Only accessible internally.
   api:
     build: ./api
-    ports:
-      - "8000:8000"
+    # ports:
+    #   - "8000:8000"  <-- REMOVED for security
     volumes:
       - shared_data:/app/data  # 掛載共享儲存區
     environment:
@@ -35,6 +36,17 @@ services:
       - redis
     # 這裡可以透過 scale 擴展 worker 數量，例如: docker-compose up --scale worker=3
     command: celery -A tasks worker --loglevel=info --concurrency=1
+
+  # 4. 前端介面 (Nuxt 3 BFF)
+  # SECURITY: This is the ONLY entry point for the user.
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NUXT_API_URL=http://api:8000
+    depends_on:
+      - api
 
 volumes:
   shared_data:

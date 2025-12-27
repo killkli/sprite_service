@@ -3,7 +3,7 @@ import time
 import sys
 import os
 
-API_URL = "http://localhost:8000"
+API_URL = "http://localhost:3000/api"
 IMAGE_PATH = "test_image.png"
 
 def test_api():

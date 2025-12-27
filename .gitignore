@@ -15,3 +15,7 @@ huggingface_cache/
 # Editor
 .vscode/
 .idea/
+
+# Local/Temp
+result.zip
+.serena/
