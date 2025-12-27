@@ -42,7 +42,7 @@ class IntegratedSpriteProcessor:
         'small': (70, 96, 74)
     }
 
-    def __init__(self, sam_checkpoint="./checkpoints/sam2.1_hiera_tiny.pt"):
+    def __init__(self):
         """初始化處理器"""
         # 設定裝置
         if torch.backends.mps.is_available():
