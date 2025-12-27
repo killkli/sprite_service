@@ -17,3 +17,5 @@ transformers
 huggingface_hub
 timm
 accelerate
+einops
+kornia

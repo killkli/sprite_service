@@ -61,8 +61,9 @@ class IntegratedSpriteProcessor:
         """載入 BiRefNet 模型"""
         print("正在載入 BiRefNet 模型...")
         try:
+            # 使用 lite 版本以節省記憶體，適合在 Podman (4GB RAM) 環境執行
             self.birefnet = AutoModelForImageSegmentation.from_pretrained(
-                'ZhengPeng7/BiRefNet',
+                'ZhengPeng7/BiRefNet_lite',
                 trust_remote_code=True
             )
             self.birefnet.to(self.device)
