@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.SpriteService" parent="android:Theme.Material.NoActionBar">
+        <!-- Status bar color -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+
+        <!-- Disable light status bar for dark theme -->
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

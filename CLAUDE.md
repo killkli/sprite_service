@@ -62,7 +62,7 @@ Browser :3000 → Nuxt 3 Frontend → [Docker Network] → FastAPI :8000 → Cel
 
 ## Android App
 
-Android 前端應用程式，位於 `/Users/johnchen/AICoding/homm3-like/android_app/`。
+Android 前端應用程式，位於 `android_app/` 目錄。
 
 **Tech Stack**: Kotlin, Jetpack Compose, MVVM + Clean Architecture, Hilt, Retrofit, Room
 
@@ -70,7 +70,7 @@ Android 前端應用程式，位於 `/Users/johnchen/AICoding/homm3-like/android
 
 ### 快速開始
 ```bash
-cd /Users/johnchen/AICoding/homm3-like/android_app
+cd android_app
 
 # 建置 Debug APK
 ./gradlew assembleDebug

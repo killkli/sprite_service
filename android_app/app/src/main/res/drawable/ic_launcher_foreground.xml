@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Sprite icon - a simple grid pattern representing sprites -->
+    <group
+        android:pivotX="54"
+        android:pivotY="54">
+        <!-- Background circle -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M54,24
+                           A30,30 0 1,1 54,84
+                           A30,30 0 1,1 54,24" />
+        <!-- Grid lines representing sprite sheet -->
+        <path
+            android:strokeColor="#2196F3"
+            android:strokeWidth="2"
+            android:pathData="M39,39 L69,39 L69,69 L39,69 Z" />
+        <path
+            android:strokeColor="#2196F3"
+            android:strokeWidth="1.5"
+            android:pathData="M54,39 L54,69" />
+        <path
+            android:strokeColor="#2196F3"
+            android:strokeWidth="1.5"
+            android:pathData="M39,54 L69,54" />
+        <!-- Small squares in grid -->
+        <path
+            android:fillColor="#4CAF50"
+            android:pathData="M42,42 L51,42 L51,51 L42,51 Z" />
+        <path
+            android:fillColor="#FF9800"
+            android:pathData="M57,42 L66,42 L66,51 L57,51 Z" />
+        <path
+            android:fillColor="#E91E63"
+            android:pathData="M42,57 L51,57 L51,66 L42,66 Z" />
+        <path
+            android:fillColor="#9C27B0"
+            android:pathData="M57,57 L66,57 L66,66 L57,66 Z" />
+    </group>
+</vector>

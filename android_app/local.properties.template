@@ -1,0 +1,8 @@
+# This file is NOT checked into version control.
+# Copy this file to local.properties and update the values.
+
+# Android SDK location (required)
+sdk.dir=/path/to/your/Android/Sdk
+
+# API Base URL for development
+# API_BASE_URL=https://your-api-domain.com
