@@ -1,9 +1,21 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
+from pydantic import BaseModel
+from typing import Optional
 from celery import Celery
 import shutil
 import os
 import uuid
+
+
+class GenerateRequest(BaseModel):
+    """
+    文字生圖請求模型
+    Text-to-image generation request model
+    """
+    prompt: str
+    model: str = "nano-banana"  # "nano-banana" or "nano-banana-pro"
+    auto_process: bool = True   # 是否自動進入 Sprite 處理流程
 
 # 初始化 FastAPI
 app = FastAPI(title="Sprite Processing Service")
@@ -50,6 +62,49 @@ async def create_process_task(file: UploadFile = File(...)):
         "status": "queued",
         "message": "Task submitted successfully. Check status with /status/{task_id}"
     }
+
+
+@app.post("/generate")
+async def create_generate_task(request: GenerateRequest):
+    """
+    從文字描述生成 Sprite
+    Generate sprite from text description
+
+    - **prompt**: 圖片描述 / Image description
+    - **model**: 模型選擇 / Model selection ("nano-banana" or "nano-banana-pro")
+    - **auto_process**: 是否自動進入 Sprite 處理 / Auto process into sprites
+    """
+    # 驗證 prompt 不為空
+    if not request.prompt.strip():
+        raise HTTPException(status_code=400, detail="Prompt cannot be empty")
+
+    # 驗證模型選擇
+    valid_models = ["nano-banana", "nano-banana-pro"]
+    if request.model not in valid_models:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid model. Choose from: {valid_models}"
+        )
+
+    # 選擇任務類型
+    if request.auto_process:
+        task_name = "tasks.generate_and_process"
+    else:
+        task_name = "tasks.generate_image"
+
+    # 發送任務給 Worker
+    task = celery_client.send_task(
+        task_name,
+        args=[request.prompt, request.model]
+    )
+
+    return {
+        "task_id": task.id,
+        "status": "queued",
+        "auto_process": request.auto_process,
+        "message": "Generation task submitted. Check status with /status/{task_id}"
+    }
+
 
 @app.get("/status/{task_id}")
 async def get_task_status(task_id: str):

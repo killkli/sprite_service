@@ -32,6 +32,10 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       # 強制設定 worker 內使用 CPU，避免嘗試呼叫不存在的 GPU 驅動
       - CUDA_VISIBLE_DEVICES=""
+      # Google AI API Key (Text-to-Image 功能)
+      # 支援 GEMINI_API_KEY 或 GOOGLE_API_KEY
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
     depends_on:
       - redis
     # 這裡可以透過 scale 擴展 worker 數量，例如: docker-compose up --scale worker=3

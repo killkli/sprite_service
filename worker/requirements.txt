@@ -19,3 +19,6 @@ timm
 accelerate
 einops
 kornia
+
+# Google AI 依賴 (Text-to-Image)
+google-genai>=1.0.0
