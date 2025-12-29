@@ -66,7 +66,17 @@ graph LR
     ```
     *Note: The first launch will download the AI model and base images, which may take a few minutes.*
 
-3.  **Access the Application**:
+3.  **Scaling Worker Service (Optional)**:
+    You can scale the worker service to process multiple tasks in parallel:
+    ```bash
+    # Scale to 3 workers using Podman
+    podman-compose up -d --scale worker=3
+
+    # Scale to 3 workers using Docker
+    docker-compose up -d --scale worker=3
+    ```
+
+4.  **Access the Application**:
     *   Open your browser and navigate to: **http://localhost:3000**
     *   (The internal API at port 8000 is intentionally unreachable directly).
 
@@ -80,6 +90,7 @@ sprite_service/
 │   ├── checkpoints/    # Model weights
 │   └── sprite_processor.py # Core logic
 ├── frontend/           # Nuxt 3 Frontend Application
+├── android_app/        # Android Mobile Application
 ├── docker-compose.yml  # Container Orchestration
 └── api_test_script.py  # Automation Test Script
 ```
@@ -89,6 +100,9 @@ An automated script is provided to verify the full pipeline (upload -> process -
 ```bash
 python3 api_test_script.py
 ```
+
+#### Android Development
+For Android app development instructions, please refer to [android_app/README.md](android_app/README.md) and [android_app/SETUP.md](android_app/SETUP.md).
 
 #### Troubleshooting
 *   **Memory Issues**: The worker uses the full `BiRefNet` model for best quality, which requires at least **8GB+ RAM**. Ensure your Docker/Podman machine has sufficient memory allocated.
@@ -146,7 +160,17 @@ python3 api_test_script.py
     ```
     *注意：首次啟動需要下載 AI 模型與基礎映像檔，可能需要 5-10 分鐘。*
 
-3.  **使用服務**:
+3.  **擴展 Worker 服務 (可選)**:
+    您可以擴展 worker 服務以並行處理多個任務：
+    ```bash
+    # 使用 Podman 擴展至 3 個 worker
+    podman-compose up -d --scale worker=3
+
+    # 使用 Docker 擴展至 3 個 worker
+    docker-compose up -d --scale worker=3
+    ```
+
+4.  **使用服務**:
     *   開啟瀏覽器並前往: **http://localhost:3000**
     *   (基於安全考量，Port 8000 的 API 無法直接連線，請務必透過前端操作)。
 
@@ -160,6 +184,7 @@ sprite_service/
 │   ├── checkpoints/    # 模型權重檔
 │   └── sprite_processor.py # 影像處理核心程式碼
 ├── frontend/           # Nuxt 3 前端應用程式 (包含 UI 與 Server Proxy)
+├── android_app/        # Android 行動應用程式
 ├── docker-compose.yml  # 容器編排設定檔
 └── api_test_script.py  # 自動化測試腳本
 ```
@@ -170,6 +195,9 @@ sprite_service/
 python3 api_test_script.py
 ```
 該腳本會透過前端 API (Port 3000) 發送請求，模擬真實使用者行為。
+
+#### Android 開發
+關於 Android 應用程式的開發說明，請參考 [android_app/README.md](android_app/README.md) 與 [android_app/SETUP.md](android_app/SETUP.md)。
 
 #### 常見問題排除
 *   **記憶體不足 (OOM)**: Worker 目前使用完整版 `BiRefNet` 模型以確保去背品質，建議配置至少 **8GB+ RAM** 的環境 (請調整 Docker/Podman Machine 的記憶體設定)。
