@@ -14,7 +14,7 @@
 The project features a secure **Backend-for-Frontend (BFF)** architecture, where the core API is isolated from the public network and accessible only through a secure Nuxt 3 frontend gateway.
 
 ### 2. Key Features
-*   **AI Background Removal**: Uses **BiRefNet (Lite)** for high-precision, edge-preserving background removal (optimized for low-memory environments).
+*   **AI Background Removal**: Uses **BiRefNet (Normal)** for high-precision, edge-preserving background removal (provides the highest quality masks).
 *   **Smart Splitting**: Automatically detects and separates multiple sprite elements from a single source image using OpenCV.
 *   **Multi-Size Generation**: Auto-resizes sprites into standard presets (Large, Medium, Small) with proper centering and padding.
 *   **Secure Architecture**:
@@ -91,7 +91,7 @@ python3 api_test_script.py
 ```
 
 #### Troubleshooting
-*   **Memory Issues**: The worker is configured to use `BiRefNet_lite` to run efficiently on 4GB RAM environments (like default Podman machines).
+*   **Memory Issues**: The worker uses the full `BiRefNet` model for best quality, which requires at least **8GB+ RAM**. Ensure your Docker/Podman machine has sufficient memory allocated.
 *   **Connection Refused**: Ensure you are accessing port `3000`, not `8000`.
 
 ---
@@ -104,7 +104,7 @@ python3 api_test_script.py
 本專案採用安全的 **Backend-for-Frontend (BFF)** 架構，核心 API 隱藏於內部網路，僅能透過 Nuxt 3 前端介面進行存取，確保系統安全性。
 
 ### 2. 功能特色
-*   **AI 智慧去背**: 採用 **BiRefNet (Lite)** 模型，提供高精度的邊緣去背能力（已針對低記憶體環境最佳化）。
+*   **AI 智慧去背**: 採用 **BiRefNet (完整版)** 模型，提供最高精度的邊緣去背與遮罩品質。
 *   **智慧切割**: 使用 OpenCV 自動偵測並分離單張圖片中的多個 Sprite 元素。
 *   **多尺寸輸出**: 自動將切割後的 Sprite 調整為標準尺寸 (大/中/小) 並置中補白。
 *   **安全架構**:
@@ -172,5 +172,5 @@ python3 api_test_script.py
 該腳本會透過前端 API (Port 3000) 發送請求，模擬真實使用者行為。
 
 #### 常見問題排除
-*   **記憶體不足 (OOM)**: Worker 已設定使用 `BiRefNet_lite` 輕量版模型，可於 4GB RAM 的環境 (如預設的 Podman Machine) 穩定執行。
+*   **記憶體不足 (OOM)**: Worker 目前使用完整版 `BiRefNet` 模型以確保去背品質，建議配置至少 **8GB+ RAM** 的環境 (請調整 Docker/Podman Machine 的記憶體設定)。
 *   **無法連線到 API**: 這是正常的安全設計。請不要嘗試連線 `localhost:8000`，所有請求都應發送至 `localhost:3000`。
