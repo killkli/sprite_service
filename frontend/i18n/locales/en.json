@@ -1,0 +1,93 @@
+{
+  "app": {
+    "title": "Sprite Service",
+    "subtitle": "Upload an image or generate from text to create game sprites",
+    "secureGateway": "Secure Gateway"
+  },
+  "tabs": {
+    "upload": "Upload Image",
+    "generate": "Text to Sprite"
+  },
+  "upload": {
+    "selectImage": "Select Image (PNG/JPG)",
+    "startProcessing": "Start Processing",
+    "processing": "Processing..."
+  },
+  "generate": {
+    "mode": "Generation Mode",
+    "textToImage": "Text-to-Image",
+    "imageToImage": "Image-to-Image (with reference)",
+    "referenceImage": "Reference Image",
+    "uploadReference": "Upload an image to use as reference",
+    "describeSprite": "Describe your sprite",
+    "editInstruction": "Edit Instruction",
+    "promptPlaceholder": "A fantasy knight sprite, pixel art style, transparent background, facing right...",
+    "editPlaceholder": "Make it a zombie version, add glowing eyes, change the armor to dark color...",
+    "model": "Model",
+    "modelFast": "Nano Banana (Fast)",
+    "modelQuality": "Nano Banana Pro (Quality)",
+    "generateSprite": "Generate Sprite",
+    "generateFromRef": "Generate from Reference",
+    "generating": "Generating..."
+  },
+  "params": {
+    "title": "Advanced Parameters",
+    "generation": "Generation Parameters",
+    "processing": "Processing Parameters",
+    "temperature": {
+      "label": "Temperature",
+      "description": "Controls randomness in generation. Lower values (0) produce more consistent, predictable results; higher values (2) produce more varied, creative results."
+    },
+    "distanceThreshold": {
+      "label": "Merge Distance",
+      "description": "Maximum distance (pixels) between elements to merge them. Larger values combine more scattered elements into a single sprite."
+    },
+    "sizeRatioThreshold": {
+      "label": "Size Ratio Threshold",
+      "description": "Minimum size ratio of elements compared to the largest element. Elements smaller than this ratio will be filtered out."
+    },
+    "alphaThreshold": {
+      "label": "Alpha Threshold",
+      "description": "Threshold for alpha channel binarization. Used to determine if a pixel is transparent."
+    },
+    "minAreaRatio": {
+      "label": "Min Area Ratio",
+      "description": "Minimum area ratio of an element compared to total image area. Very small elements will be ignored."
+    },
+    "maxAreaRatio": {
+      "label": "Max Area Ratio",
+      "description": "Maximum area ratio of an element compared to total image area. Very large elements (possibly background) will be ignored."
+    }
+  },
+  "status": {
+    "label": "Status",
+    "ready": "Ready",
+    "submitting": "Submitting...",
+    "queued": "Queued",
+    "generating": "Generating Image...",
+    "processing": "Processing Sprites...",
+    "packaging": "Packaging...",
+    "complete": "Complete",
+    "failed": "Failed"
+  },
+  "result": {
+    "complete": "Processing Complete!",
+    "downloadZip": "Download Result (ZIP)",
+    "downloadSprites": "Download Sprites (ZIP)",
+    "generateAnother": "Generate Another"
+  },
+  "info": {
+    "title": "How it works",
+    "textToImage": "Your text description will be used to generate an image using AI. The generated image will automatically go through background removal, sprite splitting, and multi-size output.",
+    "imageToImage": "Upload a reference image and describe how to modify it. The AI will generate a new image based on your instructions, then automatically process it through background removal, sprite splitting, and multi-size output."
+  },
+  "error": {
+    "prefix": "Error:",
+    "uploadReference": "Please upload a reference image"
+  },
+  "language": {
+    "label": "Language",
+    "zhTW": "繁體中文",
+    "en": "English"
+  }
+}

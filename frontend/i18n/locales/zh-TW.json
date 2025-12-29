@@ -1,0 +1,93 @@
+{
+  "app": {
+    "title": "Sprite 服務",
+    "subtitle": "上傳圖片或使用文字描述來建立遊戲素材",
+    "secureGateway": "安全閘道"
+  },
+  "tabs": {
+    "upload": "上傳圖片",
+    "generate": "文字生成"
+  },
+  "upload": {
+    "selectImage": "選擇圖片 (PNG/JPG)",
+    "startProcessing": "開始處理",
+    "processing": "處理中..."
+  },
+  "generate": {
+    "mode": "生成模式",
+    "textToImage": "文字轉圖片",
+    "imageToImage": "圖片轉圖片 (使用參考圖)",
+    "referenceImage": "參考圖片",
+    "uploadReference": "上傳參考圖片",
+    "describeSprite": "描述您的素材",
+    "editInstruction": "編輯指令",
+    "promptPlaceholder": "奇幻騎士素材，像素風格，透明背景，面向右方...",
+    "editPlaceholder": "變成殭屍版本，加上發光的眼睛，盔甲改成暗色...",
+    "model": "模型",
+    "modelFast": "Nano Banana (快速)",
+    "modelQuality": "Nano Banana Pro (高品質)",
+    "generateSprite": "生成素材",
+    "generateFromRef": "從參考圖生成",
+    "generating": "生成中..."
+  },
+  "params": {
+    "title": "進階參數",
+    "generation": "生成參數",
+    "processing": "處理參數",
+    "temperature": {
+      "label": "生成溫度",
+      "description": "控制生成結果的隨機性。較低值 (0) 產生更一致、可預測的結果；較高值 (2) 產生更多樣、有創意的結果。"
+    },
+    "distanceThreshold": {
+      "label": "合併距離",
+      "description": "相鄰元素的最大合併距離（像素）。較大的值會將更多分散的元素合併為單一素材。"
+    },
+    "sizeRatioThreshold": {
+      "label": "大小比例閾值",
+      "description": "元素相對於最大元素的最小大小比例。小於此比例的元素會被過濾掉。"
+    },
+    "alphaThreshold": {
+      "label": "透明度閾值",
+      "description": "Alpha 通道的二值化閾值。用於判定像素是否為透明。"
+    },
+    "minAreaRatio": {
+      "label": "最小面積比例",
+      "description": "元素相對於圖片總面積的最小比例。太小的元素會被忽略。"
+    },
+    "maxAreaRatio": {
+      "label": "最大面積比例",
+      "description": "元素相對於圖片總面積的最大比例。太大的元素（可能是背景）會被忽略。"
+    }
+  },
+  "status": {
+    "label": "狀態",
+    "ready": "就緒",
+    "submitting": "提交中...",
+    "queued": "排隊中",
+    "generating": "生成圖片中...",
+    "processing": "處理素材中...",
+    "packaging": "打包中...",
+    "complete": "完成",
+    "failed": "失敗"
+  },
+  "result": {
+    "complete": "處理完成！",
+    "downloadZip": "下載結果 (ZIP)",
+    "downloadSprites": "下載素材 (ZIP)",
+    "generateAnother": "再生成一個"
+  },
+  "info": {
+    "title": "使用說明",
+    "textToImage": "您的文字描述將由 AI 生成圖片，生成的圖片會自動經過去背、素材分割、多尺寸輸出處理。",
+    "imageToImage": "上傳參考圖片並描述如何修改，AI 會根據指令生成新圖片，然後自動經過去背、素材分割、多尺寸輸出處理。"
+  },
+  "error": {
+    "prefix": "錯誤：",
+    "uploadReference": "請上傳參考圖片"
+  },
+  "language": {
+    "label": "語言",
+    "zhTW": "繁體中文",
+    "en": "English"
+  }
+}

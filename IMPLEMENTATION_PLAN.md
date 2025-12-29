@@ -370,18 +370,116 @@ google-genai>=1.0.0
 
 ---
 
+## Stage 1.5: 參考圖片生成功能 (Image-to-Image)
+**Goal**: 支援上傳參考圖片，使用 AI 根據指令修改生成新圖片
+**Success Criteria**:
+- [x] `/generate/with-reference` 端點可接收參考圖片和指令進行生成
+- [x] 前端支援切換 Text-to-Image / Image-to-Image 模式
+- [x] 參考圖片預覽與清除功能
+- [x] 生成結果自動進入 Sprite 處理流程
+**Status**: Complete
+
+### 1.5.1 後端 - API 端點
+
+**檔案**: `api/main.py`
+
+```python
+@app.post("/generate/with-reference")
+async def create_generate_with_reference_task(
+    prompt: str = Form(...),
+    model: str = Form("nano-banana"),
+    auto_process: bool = Form(True),
+    reference_image: UploadFile = File(...)
+):
+    """
+    使用參考圖片進行 Image-to-Image 生成
+    """
+    # 儲存參考圖片到 uploads 目錄
+    # 發送任務給 Worker (tasks.generate_with_reference_and_process)
+```
+
+### 1.5.2 後端 - Celery 任務
+
+**檔案**: `worker/tasks.py`
+
+```python
+@app.task(bind=True, name="tasks.generate_with_reference_and_process")
+def generate_with_reference_and_process_task(
+    self,
+    reference_image_path: str,
+    prompt: str,
+    model: str = "nano-banana"
+):
+    """
+    使用參考圖片生成並處理成 Sprite 的一條龍任務
+    Full pipeline: Edit → Remove BG → Split → Multi-size
+    """
+    # 載入參考圖片
+    # 使用 generator.edit() 進行 Image-to-Image 生成
+    # 進入現有 Sprite 處理流程
+```
+
+### 1.5.3 前端 - UI 更新
+
+**檔案**: `frontend/app.vue`
+
+- 新增 `useReferenceImage` toggle 切換模式
+- 新增參考圖片上傳和預覽區域
+- Prompt 說明文字根據模式變化
+- 生成按鈕文字根據模式變化
+
+**檔案**: `frontend/server/api/generate/with-reference.post.ts`
+
+- 代理 multipart form data 到內部 API
+
+---
+
+## Stage 1.6: 進階參數與多語系支援
+**Goal**: 提供可調整的處理參數和多語系介面
+**Success Criteria**:
+- [x] 前端可調整生成溫度 (temperature)
+- [x] 前端可調整所有 Sprite 處理參數
+- [x] 參數說明以繁體中文和英文呈現
+- [x] 介面支援繁體中文（預設）和英文切換
+**Status**: Complete
+
+### 1.6.1 可調整參數
+
+**生成參數：**
+- `temperature` (0.0-2.0): 控制 AI 生成結果的隨機性
+
+**處理參數：**
+- `distance_threshold` (10-500): 相鄰元素合併距離（像素）
+- `size_ratio_threshold` (0.1-1.0): 元素最小大小比例
+- `alpha_threshold` (1-254): Alpha 通道二值化閾值
+- `min_area_ratio` (0.0001-0.1): 最小面積比例
+- `max_area_ratio` (0.05-0.9): 最大面積比例
+
+### 1.6.2 多語系支援
+
+**設定檔：**
+- `frontend/nuxt.config.ts` - 配置 @nuxtjs/i18n
+- `frontend/i18n/zh-TW.json` - 繁體中文翻譯
+- `frontend/i18n/en.json` - 英文翻譯
+
+**特點：**
+- 預設使用繁體中文
+- 語言選擇儲存於 Cookie
+- 所有參數皆有詳細說明
+
+---
+
 ## Stage 2: 編輯與精修功能
 **Goal**: 支援多輪對話式圖片編輯，使用者可迭代精修生成結果
 **Success Criteria**:
-- [ ] `/generate/edit` 端點可接收圖片和指令進行編輯
 - [ ] Session 機制保存對話歷史
-- [ ] 前端支援多輪編輯 UI
+- [ ] 前端支援多輪編輯 UI (ConversationPanel)
+- [ ] 可預覽並選擇要處理的版本
 **Status**: Not Started
 
 ### 待實作項目
 - Session 資料結構設計 (Redis 儲存)
-- `POST /generate/edit` 端點
-- `POST /generate/refine` 端點
+- `POST /generate/refine` 端點 (基於 session 繼續編輯)
 - `GET /generate/session/{id}` 端點
 - 前端 ConversationPanel 組件
 

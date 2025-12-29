@@ -36,7 +36,8 @@ class NanoBananaGenerator:
         self,
         prompt: str,
         model: str = "nano-banana",
-        number_of_images: int = 1
+        number_of_images: int = 1,
+        temperature: float = 1.0
     ) -> list[Image.Image]:
         """
         從文字 prompt 生成圖片
@@ -46,6 +47,9 @@ class NanoBananaGenerator:
             prompt: 文字描述 / Text description
             model: 模型名稱 / Model name ("nano-banana" or "nano-banana-pro")
             number_of_images: 生成圖片數量 / Number of images to generate
+            temperature: 生成溫度 (0.0-2.0) / Generation temperature (0.0-2.0)
+                         較低值產生更一致的結果，較高值產生更多變化
+                         Lower values produce more consistent results, higher values more variation
 
         Returns:
             List of PIL Image objects
@@ -56,13 +60,14 @@ class NanoBananaGenerator:
         # Optimize prompt for sprite generation
         optimized_prompt = self._optimize_prompt_for_sprite(prompt)
 
-        print(f"[ImageGen] Calling API with model={model_id}, prompt={optimized_prompt[:50]}...")
+        print(f"[ImageGen] Calling API with model={model_id}, temp={temperature}, prompt={optimized_prompt[:50]}...")
 
         response = self.client.models.generate_content(
             model=model_id,
             contents=[optimized_prompt],
             config=types.GenerateContentConfig(
-                response_modalities=["TEXT", "IMAGE"]
+                response_modalities=["TEXT", "IMAGE"],
+                temperature=temperature
             )
         )
 
@@ -118,7 +123,8 @@ class NanoBananaGenerator:
         self,
         image: Image.Image,
         instruction: str,
-        model: str = "nano-banana"
+        model: str = "nano-banana",
+        temperature: float = 1.0
     ) -> Image.Image:
         """
         編輯現有圖片
@@ -128,6 +134,7 @@ class NanoBananaGenerator:
             image: 要編輯的圖片 / Image to edit
             instruction: 編輯指令 / Edit instruction
             model: 模型名稱 / Model name
+            temperature: 生成溫度 (0.0-2.0) / Generation temperature (0.0-2.0)
 
         Returns:
             Edited PIL Image object
@@ -138,7 +145,8 @@ class NanoBananaGenerator:
             model=model_id,
             contents=[image, instruction],
             config=types.GenerateContentConfig(
-                response_modalities=["TEXT", "IMAGE"]
+                response_modalities=["TEXT", "IMAGE"],
+                temperature=temperature
             )
         )
 
