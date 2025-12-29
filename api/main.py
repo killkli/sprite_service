@@ -41,6 +41,42 @@ class ProcessingParams(BaseModel):
     )
 
 
+class GridParams(BaseModel):
+    """
+    格線分割參數
+    Grid splitting parameters
+    """
+    auto_detect: bool = Field(
+        default=True,
+        description="是否自動偵測格線 / Auto-detect grid lines"
+    )
+    rows: Optional[int] = Field(
+        default=None,
+        ge=1, le=50,
+        description="手動指定行數 / Manual row count (when auto_detect=False)"
+    )
+    cols: Optional[int] = Field(
+        default=None,
+        ge=1, le=50,
+        description="手動指定列數 / Manual column count (when auto_detect=False)"
+    )
+    padding: int = Field(
+        default=2,
+        ge=0, le=50,
+        description="格線內縮邊距 / Grid cell inner padding (pixels)"
+    )
+    line_threshold: int = Field(
+        default=50,
+        ge=10, le=200,
+        description="線條偵測閾值 / Line detection threshold"
+    )
+    min_line_length_ratio: float = Field(
+        default=0.3,
+        ge=0.1, le=1.0,
+        description="最小線長比例 / Minimum line length ratio"
+    )
+
+
 class GenerateRequest(BaseModel):
     """
     文字生圖請求模型
@@ -132,6 +168,64 @@ async def create_process_task(
         "task_id": task.id,
         "status": "queued",
         "message": "Task submitted successfully. Check status with /status/{task_id}"
+    }
+
+
+@app.post("/process/grid")
+async def create_process_grid_task(
+    file: UploadFile = File(...),
+    auto_detect: bool = Form(True),
+    rows: Optional[int] = Form(None),
+    cols: Optional[int] = Form(None),
+    padding: int = Form(2),
+    line_threshold: int = Form(50),
+    min_line_length_ratio: float = Form(0.3)
+):
+    """
+    上傳圖片並使用格線分割模式建立處理任務
+    Upload image and create grid-based processing task
+
+    Grid Parameters:
+    - **auto_detect**: 是否自動偵測格線 / Auto-detect grid lines (default: true)
+    - **rows**: 手動指定行數 / Manual row count (when auto_detect=false)
+    - **cols**: 手動指定列數 / Manual column count (when auto_detect=false)
+    - **padding**: 格線內縮邊距 / Grid cell inner padding in pixels
+    - **line_threshold**: 線條偵測閾值 / Line detection threshold
+    - **min_line_length_ratio**: 最小線長比例 / Minimum line length ratio
+    """
+    # 產生唯一 ID
+    task_id = str(uuid.uuid4())
+    filename = f"{task_id}.png"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+
+    # 儲存上傳的檔案到共享 Volume
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"File save error: {str(e)}")
+
+    # 格線參數
+    grid_params = {
+        "auto_detect": auto_detect,
+        "rows": rows,
+        "cols": cols,
+        "padding": padding,
+        "line_threshold": line_threshold,
+        "min_line_length_ratio": min_line_length_ratio
+    }
+
+    # 發送任務給 Worker
+    task = celery_client.send_task(
+        "tasks.process_sprite_grid",
+        args=[file_path, task_id],
+        kwargs={"grid_params": grid_params}
+    )
+
+    return {
+        "task_id": task.id,
+        "status": "queued",
+        "message": "Grid processing task submitted. Check status with /status/{task_id}"
     }
 
 

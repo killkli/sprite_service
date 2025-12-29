@@ -33,6 +33,7 @@ class IntegratedSpriteProcessor:
     1. BiRefNet 高精度去背景
     2. OpenCV 智能分割與合併
     3. 多尺寸調整與置中
+    4. 格線偵測分割（適用於貼圖表格）
     """
 
     # 尺寸配置
@@ -61,9 +62,9 @@ class IntegratedSpriteProcessor:
         """載入 BiRefNet 模型"""
         print("正在載入 BiRefNet 模型...")
         try:
-            # 使用 lite 版本以節省記憶體，適合在 Podman (4GB RAM) 環境執行
+            # 使用完整版 BiRefNet 以獲得最佳去背品質 (需要 8GB+ RAM)
             self.birefnet = AutoModelForImageSegmentation.from_pretrained(
-                'ZhengPeng7/BiRefNet_lite',
+                'ZhengPeng7/BiRefNet',
                 trust_remote_code=True
             )
             self.birefnet.to(self.device)
@@ -384,6 +385,326 @@ class IntegratedSpriteProcessor:
         canvas.paste(resized, (x_offset, y_offset), resized)
 
         return canvas
+
+    # ==================== 格線分割功能 ====================
+
+    def _cluster_lines(self, positions, distance_threshold):
+        """將相近的線條位置聚合"""
+        if not positions:
+            return []
+
+        positions = sorted(set(positions))
+        clusters = []
+        current_cluster = [positions[0]]
+
+        for pos in positions[1:]:
+            if pos - current_cluster[-1] <= distance_threshold:
+                current_cluster.append(pos)
+            else:
+                clusters.append(int(np.mean(current_cluster)))
+                current_cluster = [pos]
+
+        clusters.append(int(np.mean(current_cluster)))
+        return clusters
+
+    def detect_grid_lines(self, image_path, line_threshold=50, min_line_length_ratio=0.3,
+                         edge_margin=10, cluster_distance=20):
+        """
+        偵測圖片中的格線
+        Detect grid lines in image
+
+        Args:
+            image_path: 輸入圖片路徑
+            line_threshold: Hough 線偵測閾值
+            min_line_length_ratio: 最小線長度比例（相對於圖片寬/高）
+            edge_margin: 邊緣忽略距離
+            cluster_distance: 線條聚合距離
+
+        Returns:
+            (horizontal_lines, vertical_lines): 水平和垂直線的 y/x 座標列表
+        """
+        print("\n[格線偵測] 分析圖片結構...")
+
+        # 讀取圖片
+        img = cv2.imread(image_path)
+        if img is None:
+            raise ValueError(f"無法讀取圖片: {image_path}")
+
+        h, w = img.shape[:2]
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # 邊緣偵測
+        edges = cv2.Canny(gray, 50, 150, apertureSize=3)
+
+        # 形態學操作增強線條
+        kernel_h = cv2.getStructuringElement(cv2.MORPH_RECT, (25, 1))
+        kernel_v = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 25))
+
+        # 分別偵測水平和垂直線
+        horizontal_edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel_h)
+        vertical_edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel_v)
+
+        # 使用 HoughLinesP 偵測線段
+        min_line_length_h = int(w * min_line_length_ratio)
+        min_line_length_v = int(h * min_line_length_ratio)
+
+        h_lines = cv2.HoughLinesP(horizontal_edges, 1, np.pi/180, line_threshold,
+                                   minLineLength=min_line_length_h, maxLineGap=50)
+        v_lines = cv2.HoughLinesP(vertical_edges, 1, np.pi/180, line_threshold,
+                                   minLineLength=min_line_length_v, maxLineGap=50)
+
+        # 提取水平線的 y 座標
+        horizontal_positions = []
+        if h_lines is not None:
+            for line in h_lines:
+                x1, y1, x2, y2 = line[0]
+                # 確認是水平線（角度接近 0 度）
+                if abs(y2 - y1) < 20:
+                    y_avg = (y1 + y2) // 2
+                    # 忽略邊緣附近的線
+                    if edge_margin < y_avg < h - edge_margin:
+                        horizontal_positions.append(y_avg)
+
+        # 提取垂直線的 x 座標
+        vertical_positions = []
+        if v_lines is not None:
+            for line in v_lines:
+                x1, y1, x2, y2 = line[0]
+                # 確認是垂直線（角度接近 90 度）
+                if abs(x2 - x1) < 20:
+                    x_avg = (x1 + x2) // 2
+                    # 忽略邊緣附近的線
+                    if edge_margin < x_avg < w - edge_margin:
+                        vertical_positions.append(x_avg)
+
+        # 聚合相近的線條
+        horizontal_lines = self._cluster_lines(horizontal_positions, cluster_distance)
+        vertical_lines = self._cluster_lines(vertical_positions, cluster_distance)
+
+        # 添加邊界
+        horizontal_lines = [0] + horizontal_lines + [h]
+        vertical_lines = [0] + vertical_lines + [w]
+
+        print(f"  偵測到 {len(horizontal_lines)-1} 條水平分隔（{len(horizontal_lines)-2} 條內部線）")
+        print(f"  偵測到 {len(vertical_lines)-1} 條垂直分隔（{len(vertical_lines)-2} 條內部線）")
+        print(f"  預計格數: {(len(horizontal_lines)-1) * (len(vertical_lines)-1)}")
+
+        return horizontal_lines, vertical_lines
+
+    def detect_grid_by_color_diff(self, image_path, sample_size=5, diff_threshold=30):
+        """
+        透過顏色差異偵測格線（備用方法）
+        Detect grid by color difference (backup method)
+
+        適用於格線不明顯但格子顏色差異大的情況
+
+        Args:
+            image_path: 輸入圖片路徑
+            sample_size: 採樣大小
+            diff_threshold: 顏色差異閾值
+        """
+        print("\n[格線偵測] 使用顏色差異分析...")
+
+        img = cv2.imread(image_path)
+        h, w = img.shape[:2]
+
+        # 計算每列的顏色變化
+        col_diffs = []
+        for x in range(1, w):
+            diff = np.mean(np.abs(img[:, x].astype(float) - img[:, x-1].astype(float)))
+            col_diffs.append(diff)
+
+        # 計算每行的顏色變化
+        row_diffs = []
+        for y in range(1, h):
+            diff = np.mean(np.abs(img[y, :].astype(float) - img[y-1, :].astype(float)))
+            row_diffs.append(diff)
+
+        # 找出差異峰值
+        col_diffs = np.array(col_diffs)
+        row_diffs = np.array(row_diffs)
+
+        # 使用閾值找出分隔線位置
+        vertical_lines = [0] + [i+1 for i in range(len(col_diffs))
+                                if col_diffs[i] > diff_threshold * np.mean(col_diffs)] + [w]
+        horizontal_lines = [0] + [i+1 for i in range(len(row_diffs))
+                                  if row_diffs[i] > diff_threshold * np.mean(row_diffs)] + [h]
+
+        # 聚合相近的線
+        vertical_lines = self._cluster_lines(vertical_lines[1:-1], 20)
+        horizontal_lines = self._cluster_lines(horizontal_lines[1:-1], 20)
+
+        vertical_lines = [0] + vertical_lines + [w]
+        horizontal_lines = [0] + horizontal_lines + [h]
+
+        return horizontal_lines, vertical_lines
+
+    def split_by_grid(self, image_path, output_dir, padding=2,
+                      auto_detect=True, rows=None, cols=None,
+                      line_threshold=50, min_line_length_ratio=0.3):
+        """
+        根據格線分割圖片
+        Split image by grid lines
+
+        Args:
+            image_path: 輸入圖片路徑
+            output_dir: 輸出目錄
+            padding: 裁切時的內縮邊距（去除格線）
+            auto_detect: 是否自動偵測格線
+            rows: 手動指定行數（auto_detect=False 時使用）
+            cols: 手動指定列數（auto_detect=False 時使用）
+            line_threshold: 線偵測閾值
+            min_line_length_ratio: 最小線長比例
+
+        Returns:
+            sprite_paths: 分割後的 sprite 路徑列表
+        """
+        print(f"\n{'='*60}")
+        print(f"[格線分割模式] 處理: {image_path}")
+        print(f"{'='*60}")
+
+        # 建立輸出目錄
+        base_dir = Path(output_dir)
+        original_dir = base_dir / "original_sprites"
+        original_dir.mkdir(parents=True, exist_ok=True)
+
+        # 讀取圖片
+        img = Image.open(image_path)
+        if img.mode != 'RGBA':
+            img = img.convert('RGBA')
+        w, h = img.size
+
+        if auto_detect:
+            # 自動偵測格線
+            try:
+                h_lines, v_lines = self.detect_grid_lines(
+                    image_path,
+                    line_threshold=line_threshold,
+                    min_line_length_ratio=min_line_length_ratio
+                )
+
+                # 如果偵測結果太少，嘗試備用方法
+                if len(h_lines) <= 2 or len(v_lines) <= 2:
+                    print("  線條偵測結果不佳，嘗試顏色差異分析...")
+                    h_lines, v_lines = self.detect_grid_by_color_diff(image_path)
+
+            except Exception as e:
+                print(f"  自動偵測失敗: {e}")
+                if rows and cols:
+                    print(f"  使用手動指定: {rows}x{cols}")
+                    h_lines = [int(i * h / rows) for i in range(rows + 1)]
+                    v_lines = [int(i * w / cols) for i in range(cols + 1)]
+                else:
+                    raise ValueError("自動偵測失敗且未指定 rows/cols")
+        else:
+            # 使用手動指定的行列數
+            if not rows or not cols:
+                raise ValueError("非自動模式需要指定 rows 和 cols")
+            h_lines = [int(i * h / rows) for i in range(rows + 1)]
+            v_lines = [int(i * w / cols) for i in range(cols + 1)]
+            print(f"  使用手動分割: {rows} 行 x {cols} 列")
+
+        # 分割圖片
+        sprite_paths = []
+        sprite_idx = 0
+        num_rows = len(h_lines) - 1
+        num_cols = len(v_lines) - 1
+
+        print(f"\n[分割] 切割成 {num_rows} x {num_cols} = {num_rows * num_cols} 格...")
+
+        # 建立視覺化圖片
+        vis_img = cv2.imread(image_path)
+
+        for row in range(num_rows):
+            for col in range(num_cols):
+                y1, y2 = h_lines[row], h_lines[row + 1]
+                x1, x2 = v_lines[col], v_lines[col + 1]
+
+                # 添加內縮（去除格線邊緣）
+                y1_crop = min(y1 + padding, y2)
+                y2_crop = max(y2 - padding, y1)
+                x1_crop = min(x1 + padding, x2)
+                x2_crop = max(x2 - padding, x1)
+
+                # 確保有效尺寸
+                if x2_crop <= x1_crop or y2_crop <= y1_crop:
+                    continue
+
+                # 裁切
+                sprite = img.crop((x1_crop, y1_crop, x2_crop, y2_crop))
+
+                # 儲存
+                filename = f"sprite_{sprite_idx:03d}.png"
+                save_path = original_dir / filename
+                sprite.save(save_path)
+                sprite_paths.append(save_path)
+
+                # 視覺化標記
+                cv2.rectangle(vis_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(vis_img, str(sprite_idx), (x1 + 5, y1 + 25),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
+                print(f"  ✓ {filename} (row={row}, col={col}, size={x2_crop-x1_crop}x{y2_crop-y1_crop})")
+                sprite_idx += 1
+
+        # 儲存視覺化
+        vis_path = base_dir / "grid_detection_visualization.jpg"
+        cv2.imwrite(str(vis_path), vis_img)
+
+        print(f"\n✓ 格線分割完成，共 {len(sprite_paths)} 個 sprites")
+        print(f"  視覺化: {vis_path}")
+
+        return sprite_paths, original_dir
+
+    def process_grid(self, input_image, output_dir="output_processed",
+                     auto_detect=True, rows=None, cols=None,
+                     padding=2, line_threshold=50, min_line_length_ratio=0.3):
+        """
+        格線分割完整處理流程
+        Full grid-based processing pipeline
+
+        Args:
+            input_image: 輸入圖片路徑
+            output_dir: 輸出目錄
+            auto_detect: 是否自動偵測格線
+            rows: 手動指定行數
+            cols: 手動指定列數
+            padding: 裁切內縮邊距
+            line_threshold: 線偵測閾值
+            min_line_length_ratio: 最小線長比例
+        """
+        print(f"\n{'#'*60}")
+        print(f"# Sprite Processor - 格線分割模式")
+        print(f"{'#'*60}")
+
+        # 執行格線分割
+        sprite_paths, original_dir = self.split_by_grid(
+            input_image,
+            output_dir,
+            padding=padding,
+            auto_detect=auto_detect,
+            rows=rows,
+            cols=cols,
+            line_threshold=line_threshold,
+            min_line_length_ratio=min_line_length_ratio
+        )
+
+        # 執行尺寸調整
+        self.resize_sprites(original_dir, output_dir)
+
+        # 輸出總結
+        print(f"\n{'='*60}")
+        print(f"格線分割處理完成！")
+        print(f"{'='*60}")
+        print(f"輸出目錄: {output_dir}/")
+        print(f"  ├── original_sprites/  ({len(sprite_paths)} 個原始 sprites)")
+        print(f"  ├── large/             ({len(sprite_paths)} 個 280x280)")
+        print(f"  ├── medium/            ({len(sprite_paths)} 個 240x240)")
+        print(f"  ├── small/             ({len(sprite_paths)} 個 96x74)")
+        print(f"  └── grid_detection_visualization.jpg")
+        print(f"{'='*60}\n")
+
+        return len(sprite_paths)
 
     def process(self, input_image, output_dir="output_processed",
                 distance_threshold=80, size_ratio_threshold=0.4,

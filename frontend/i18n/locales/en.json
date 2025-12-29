@@ -11,7 +11,12 @@
   "upload": {
     "selectImage": "Select Image (PNG/JPG)",
     "startProcessing": "Start Processing",
-    "processing": "Processing..."
+    "processing": "Processing...",
+    "splitMode": "Split Mode",
+    "splitModeAuto": "Auto Detect (Background Removal)",
+    "splitModeGrid": "Grid Split",
+    "splitModeAutoDesc": "AI background removal with automatic element detection",
+    "splitModeGridDesc": "Split by grid lines, suitable for sprite sheets"
   },
   "generate": {
     "mode": "Generation Mode",
@@ -57,6 +62,31 @@
     "maxAreaRatio": {
       "label": "Max Area Ratio",
       "description": "Maximum area ratio of an element compared to total image area. Very large elements (possibly background) will be ignored."
+    },
+    "gridParams": "Grid Parameters",
+    "autoDetect": {
+      "label": "Auto Detect",
+      "description": "Automatically detect grid lines in the image. When disabled, you must specify rows and columns manually."
+    },
+    "gridRows": {
+      "label": "Rows",
+      "description": "Number of rows in the grid. Only used when auto detect is disabled."
+    },
+    "gridCols": {
+      "label": "Columns",
+      "description": "Number of columns in the grid. Only used when auto detect is disabled."
+    },
+    "gridPadding": {
+      "label": "Inner Padding",
+      "description": "Inner padding (pixels) when cropping cells, used to remove grid line edges."
+    },
+    "lineThreshold": {
+      "label": "Line Threshold",
+      "description": "Hough line detection threshold. Lower values detect more lines."
+    },
+    "minLineLengthRatio": {
+      "label": "Min Line Length Ratio",
+      "description": "Minimum line length as a ratio of image width/height to be detected."
     }
   },
   "status": {

@@ -90,6 +90,76 @@ def process_sprite(self, input_path, task_id, processing_params=None):
             shutil.rmtree(task_output_dir)
 
 
+# 格線分割預設參數
+DEFAULT_GRID_PARAMS = {
+    "auto_detect": True,
+    "rows": None,
+    "cols": None,
+    "padding": 2,
+    "line_threshold": 50,
+    "min_line_length_ratio": 0.3
+}
+
+
+@app.task(bind=True, name="tasks.process_sprite_grid")
+def process_sprite_grid(self, input_path, task_id, grid_params=None):
+    """
+    使用格線分割模式處理 Sprite 的 Celery 任務
+    Celery task for sprite processing using grid splitting mode
+    """
+    global processor
+
+    # 合併參數 (使用者參數覆蓋預設值)
+    params = {**DEFAULT_GRID_PARAMS, **(grid_params or {})}
+
+    # 懶加載模型 (Lazy Loading)
+    if processor is None:
+        print("Initializing Sprite Processor Model...")
+        processor = IntegratedSpriteProcessor()
+        print("Model Initialized.")
+
+    # 設定本次任務的輸出路徑
+    task_output_dir = os.path.join(TEMP_DIR, task_id)
+    os.makedirs(task_output_dir, exist_ok=True)
+
+    try:
+        print(f"Processing task {task_id} for image {input_path} (Grid Mode)")
+        print(f"Grid Parameters: {params}")
+
+        # 呼叫格線分割處理
+        count = processor.process_grid(
+            input_image=input_path,
+            output_dir=task_output_dir,
+            auto_detect=params["auto_detect"],
+            rows=params["rows"],
+            cols=params["cols"],
+            padding=params["padding"],
+            line_threshold=params["line_threshold"],
+            min_line_length_ratio=params["min_line_length_ratio"]
+        )
+
+        # 將結果打包成 Zip
+        zip_base_name = os.path.join(RESULT_DIR, f"sprites_{task_id}")
+        shutil.make_archive(zip_base_name, 'zip', task_output_dir)
+        zip_path = f"{zip_base_name}.zip"
+
+        return {
+            "status": "success",
+            "sprite_count": count,
+            "zip_path": zip_path,
+            "task_id": task_id
+        }
+
+    except Exception as e:
+        print(f"Error processing task {task_id}: {str(e)}")
+        self.retry(exc=e, countdown=10, max_retries=1)
+
+    finally:
+        # 清理暫存的解壓縮/處理資料夾 (保留原始上傳與最終 Zip)
+        if os.path.exists(task_output_dir):
+            shutil.rmtree(task_output_dir)
+
+
 @app.task(bind=True, name="tasks.generate_image")
 def generate_image_task(
     self,

@@ -5,8 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 Sprite Service is a microservice-based application for automating game sprite processing:
-- **AI Background Removal**: BiRefNet (Lite) for edge-preserving background removal
+- **AI Background Removal**: BiRefNet (Full) for high-quality edge-preserving background removal
 - **Smart Splitting**: OpenCV to detect and separate multiple sprites from a single image
+- **Grid Splitting**: Auto-detect or manual grid-based splitting for sprite sheets
 - **Multi-Size Generation**: Outputs in Large (256x256), Medium (128x128), Small (64x64)
 - **Text-to-Sprite (Planned)**: Google Nano Banana Pro API for text-to-image generation with auto-processing
 
@@ -51,7 +52,7 @@ Browser :3000 → Nuxt 3 Frontend → [Docker Network] → FastAPI :8000 → Cel
 | frontend | `/frontend/` | Nuxt 3 - UI + server-side API proxy |
 
 ### Key Files
-- `api/main.py` - Endpoints: `/process`, `/status/{id}`, `/download/{id}`
+- `api/main.py` - Endpoints: `/process`, `/process/grid`, `/status/{id}`, `/download/{id}`, `/generate`
 - `worker/sprite_processor.py` - `IntegratedSpriteProcessor` class (core AI logic)
 - `frontend/server/api/` - Nuxt server routes proxying to internal API
 
@@ -147,6 +148,7 @@ See Serena memory `text_to_sprite_plan.md` for full implementation details.
 
 ## Environment Notes
 
-- Worker uses `BiRefNet_lite` for 4GB RAM environments
+- **Podman/Docker RAM**: Requires 8GB+ (set via `podman machine set --memory 8192`)
+- Worker uses full `BiRefNet` model for best quality background removal
 - First startup downloads AI models (~2GB)
 - Access web UI at http://localhost:3000 (NOT port 8000)

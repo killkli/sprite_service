@@ -11,7 +11,12 @@
   "upload": {
     "selectImage": "選擇圖片 (PNG/JPG)",
     "startProcessing": "開始處理",
-    "processing": "處理中..."
+    "processing": "處理中...",
+    "splitMode": "分割模式",
+    "splitModeAuto": "自動偵測 (去背景)",
+    "splitModeGrid": "格線分割",
+    "splitModeAutoDesc": "使用 AI 去背景，自動偵測並分割獨立元素",
+    "splitModeGridDesc": "根據格線切割圖片，適合貼圖表格"
   },
   "generate": {
     "mode": "生成模式",
@@ -57,6 +62,31 @@
     "maxAreaRatio": {
       "label": "最大面積比例",
       "description": "元素相對於圖片總面積的最大比例。太大的元素（可能是背景）會被忽略。"
+    },
+    "gridParams": "格線參數",
+    "autoDetect": {
+      "label": "自動偵測",
+      "description": "自動偵測圖片中的格線位置。關閉時需手動指定行列數。"
+    },
+    "gridRows": {
+      "label": "行數",
+      "description": "手動指定格線行數。關閉自動偵測後生效。"
+    },
+    "gridCols": {
+      "label": "列數",
+      "description": "手動指定格線列數。關閉自動偵測後生效。"
+    },
+    "gridPadding": {
+      "label": "內縮邊距",
+      "description": "裁切時的內縮距離（像素），用於去除格線邊緣。"
+    },
+    "lineThreshold": {
+      "label": "線條偵測閾值",
+      "description": "Hough 線偵測的閾值。較低的值可以偵測更多線條。"
+    },
+    "minLineLengthRatio": {
+      "label": "最小線長比例",
+      "description": "線條需達到圖片寬/高的最小比例才會被偵測。"
     }
   },
   "status": {

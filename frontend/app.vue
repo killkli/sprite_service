@@ -33,12 +33,21 @@ const minAreaRatio = ref<number>(0.0005)
 const maxAreaRatio = ref<number>(0.25)
 
 // === Upload Mode Parameters ===
+const uploadSplitMode = ref<'auto' | 'grid'>('auto')
 const uploadDistanceThreshold = ref<number>(80)
 const uploadSizeRatioThreshold = ref<number>(0.4)
 const uploadAlphaThreshold = ref<number>(50)
 const uploadMinAreaRatio = ref<number>(0.0005)
 const uploadMaxAreaRatio = ref<number>(0.25)
 const showUploadAdvancedParams = ref<boolean>(false)
+
+// === Grid Parameters ===
+const gridAutoDetect = ref<boolean>(true)
+const gridRows = ref<number>(4)
+const gridCols = ref<number>(4)
+const gridPadding = ref<number>(2)
+const gridLineThreshold = ref<number>(50)
+const gridMinLineLengthRatio = ref<number>(0.3)
 
 // Model options
 const modelOptions = computed(() => [
@@ -80,14 +89,31 @@ async function uploadFile() {
   uploadStatus.value = 'UPLOADING'
   const formData = new FormData()
   formData.append('file', file.value)
-  formData.append('distance_threshold', uploadDistanceThreshold.value.toString())
-  formData.append('size_ratio_threshold', uploadSizeRatioThreshold.value.toString())
-  formData.append('alpha_threshold', uploadAlphaThreshold.value.toString())
-  formData.append('min_area_ratio', uploadMinAreaRatio.value.toString())
-  formData.append('max_area_ratio', uploadMaxAreaRatio.value.toString())
+
+  let endpoint = '/api/process'
+
+  if (uploadSplitMode.value === 'grid') {
+    // Grid split mode
+    endpoint = '/api/process/grid'
+    formData.append('auto_detect', gridAutoDetect.value.toString())
+    if (!gridAutoDetect.value) {
+      formData.append('rows', gridRows.value.toString())
+      formData.append('cols', gridCols.value.toString())
+    }
+    formData.append('padding', gridPadding.value.toString())
+    formData.append('line_threshold', gridLineThreshold.value.toString())
+    formData.append('min_line_length_ratio', gridMinLineLengthRatio.value.toString())
+  } else {
+    // Auto detect mode (background removal)
+    formData.append('distance_threshold', uploadDistanceThreshold.value.toString())
+    formData.append('size_ratio_threshold', uploadSizeRatioThreshold.value.toString())
+    formData.append('alpha_threshold', uploadAlphaThreshold.value.toString())
+    formData.append('min_area_ratio', uploadMinAreaRatio.value.toString())
+    formData.append('max_area_ratio', uploadMaxAreaRatio.value.toString())
+  }
 
   try {
-    const { data, error } = await useFetch('/api/process', {
+    const { data, error } = await useFetch(endpoint, {
       method: 'POST',
       body: formData
     })
@@ -326,6 +352,43 @@ function changeLanguage(lang: string) {
                 />
               </div>
 
+              <!-- Split Mode Selection -->
+              <div class="flex flex-col gap-2">
+                <label class="font-medium">{{ t('upload.splitMode') }}</label>
+                <div class="grid grid-cols-2 gap-4">
+                  <button
+                    @click="uploadSplitMode = 'auto'"
+                    :class="[
+                      'p-4 rounded-lg border-2 text-left transition-all',
+                      uploadSplitMode === 'auto'
+                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-950'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                    ]"
+                  >
+                    <div class="flex items-center gap-2 mb-1">
+                      <UIcon name="i-heroicons-sparkles" class="text-lg" />
+                      <span class="font-medium">{{ t('upload.splitModeAuto') }}</span>
+                    </div>
+                    <p class="text-xs text-gray-500">{{ t('upload.splitModeAutoDesc') }}</p>
+                  </button>
+                  <button
+                    @click="uploadSplitMode = 'grid'"
+                    :class="[
+                      'p-4 rounded-lg border-2 text-left transition-all',
+                      uploadSplitMode === 'grid'
+                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-950'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                    ]"
+                  >
+                    <div class="flex items-center gap-2 mb-1">
+                      <UIcon name="i-heroicons-table-cells" class="text-lg" />
+                      <span class="font-medium">{{ t('upload.splitModeGrid') }}</span>
+                    </div>
+                    <p class="text-xs text-gray-500">{{ t('upload.splitModeGridDesc') }}</p>
+                  </button>
+                </div>
+              </div>
+
               <!-- Advanced Parameters Toggle -->
               <div class="border rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
                 <button
@@ -337,47 +400,105 @@ function changeLanguage(lang: string) {
                 </button>
 
                 <div v-if="showUploadAdvancedParams" class="mt-4 space-y-4">
-                  <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-400">{{ t('params.processing') }}</h4>
+                  <!-- Auto Detect Mode Parameters -->
+                  <template v-if="uploadSplitMode === 'auto'">
+                    <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-400">{{ t('params.processing') }}</h4>
 
-                  <div>
-                    <div class="flex justify-between text-sm mb-1">
-                      <label>{{ t('params.distanceThreshold.label') }}: {{ uploadDistanceThreshold }}</label>
+                    <div>
+                      <div class="flex justify-between text-sm mb-1">
+                        <label>{{ t('params.distanceThreshold.label') }}: {{ uploadDistanceThreshold }}</label>
+                      </div>
+                      <URange v-model="uploadDistanceThreshold" :min="10" :max="500" :step="10" />
+                      <p class="text-xs text-gray-500 mt-1">{{ t('params.distanceThreshold.description') }}</p>
                     </div>
-                    <URange v-model="uploadDistanceThreshold" :min="10" :max="500" :step="10" />
-                    <p class="text-xs text-gray-500 mt-1">{{ t('params.distanceThreshold.description') }}</p>
-                  </div>
 
-                  <div>
-                    <div class="flex justify-between text-sm mb-1">
-                      <label>{{ t('params.sizeRatioThreshold.label') }}: {{ uploadSizeRatioThreshold.toFixed(2) }}</label>
+                    <div>
+                      <div class="flex justify-between text-sm mb-1">
+                        <label>{{ t('params.sizeRatioThreshold.label') }}: {{ uploadSizeRatioThreshold.toFixed(2) }}</label>
+                      </div>
+                      <URange v-model="uploadSizeRatioThreshold" :min="0.1" :max="1.0" :step="0.05" />
+                      <p class="text-xs text-gray-500 mt-1">{{ t('params.sizeRatioThreshold.description') }}</p>
                     </div>
-                    <URange v-model="uploadSizeRatioThreshold" :min="0.1" :max="1.0" :step="0.05" />
-                    <p class="text-xs text-gray-500 mt-1">{{ t('params.sizeRatioThreshold.description') }}</p>
-                  </div>
 
-                  <div>
-                    <div class="flex justify-between text-sm mb-1">
-                      <label>{{ t('params.alphaThreshold.label') }}: {{ uploadAlphaThreshold }}</label>
+                    <div>
+                      <div class="flex justify-between text-sm mb-1">
+                        <label>{{ t('params.alphaThreshold.label') }}: {{ uploadAlphaThreshold }}</label>
+                      </div>
+                      <URange v-model="uploadAlphaThreshold" :min="1" :max="254" :step="1" />
+                      <p class="text-xs text-gray-500 mt-1">{{ t('params.alphaThreshold.description') }}</p>
                     </div>
-                    <URange v-model="uploadAlphaThreshold" :min="1" :max="254" :step="1" />
-                    <p class="text-xs text-gray-500 mt-1">{{ t('params.alphaThreshold.description') }}</p>
-                  </div>
 
-                  <div>
-                    <div class="flex justify-between text-sm mb-1">
-                      <label>{{ t('params.minAreaRatio.label') }}: {{ uploadMinAreaRatio.toFixed(4) }}</label>
+                    <div>
+                      <div class="flex justify-between text-sm mb-1">
+                        <label>{{ t('params.minAreaRatio.label') }}: {{ uploadMinAreaRatio.toFixed(4) }}</label>
+                      </div>
+                      <URange v-model="uploadMinAreaRatio" :min="0.0001" :max="0.1" :step="0.0001" />
+                      <p class="text-xs text-gray-500 mt-1">{{ t('params.minAreaRatio.description') }}</p>
                     </div>
-                    <URange v-model="uploadMinAreaRatio" :min="0.0001" :max="0.1" :step="0.0001" />
-                    <p class="text-xs text-gray-500 mt-1">{{ t('params.minAreaRatio.description') }}</p>
-                  </div>
 
-                  <div>
-                    <div class="flex justify-between text-sm mb-1">
-                      <label>{{ t('params.maxAreaRatio.label') }}: {{ uploadMaxAreaRatio.toFixed(2) }}</label>
+                    <div>
+                      <div class="flex justify-between text-sm mb-1">
+                        <label>{{ t('params.maxAreaRatio.label') }}: {{ uploadMaxAreaRatio.toFixed(2) }}</label>
+                      </div>
+                      <URange v-model="uploadMaxAreaRatio" :min="0.05" :max="0.9" :step="0.05" />
+                      <p class="text-xs text-gray-500 mt-1">{{ t('params.maxAreaRatio.description') }}</p>
                     </div>
-                    <URange v-model="uploadMaxAreaRatio" :min="0.05" :max="0.9" :step="0.05" />
-                    <p class="text-xs text-gray-500 mt-1">{{ t('params.maxAreaRatio.description') }}</p>
-                  </div>
+                  </template>
+
+                  <!-- Grid Mode Parameters -->
+                  <template v-else>
+                    <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-400">{{ t('params.gridParams') }}</h4>
+
+                    <div>
+                      <div class="flex items-center justify-between mb-2">
+                        <label class="text-sm">{{ t('params.autoDetect.label') }}</label>
+                        <UToggle v-model="gridAutoDetect" />
+                      </div>
+                      <p class="text-xs text-gray-500">{{ t('params.autoDetect.description') }}</p>
+                    </div>
+
+                    <div v-if="!gridAutoDetect" class="grid grid-cols-2 gap-4">
+                      <div>
+                        <div class="flex justify-between text-sm mb-1">
+                          <label>{{ t('params.gridRows.label') }}: {{ gridRows }}</label>
+                        </div>
+                        <URange v-model="gridRows" :min="1" :max="20" :step="1" />
+                        <p class="text-xs text-gray-500 mt-1">{{ t('params.gridRows.description') }}</p>
+                      </div>
+
+                      <div>
+                        <div class="flex justify-between text-sm mb-1">
+                          <label>{{ t('params.gridCols.label') }}: {{ gridCols }}</label>
+                        </div>
+                        <URange v-model="gridCols" :min="1" :max="20" :step="1" />
+                        <p class="text-xs text-gray-500 mt-1">{{ t('params.gridCols.description') }}</p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div class="flex justify-between text-sm mb-1">
+                        <label>{{ t('params.gridPadding.label') }}: {{ gridPadding }}</label>
+                      </div>
+                      <URange v-model="gridPadding" :min="0" :max="20" :step="1" />
+                      <p class="text-xs text-gray-500 mt-1">{{ t('params.gridPadding.description') }}</p>
+                    </div>
+
+                    <div v-if="gridAutoDetect">
+                      <div class="flex justify-between text-sm mb-1">
+                        <label>{{ t('params.lineThreshold.label') }}: {{ gridLineThreshold }}</label>
+                      </div>
+                      <URange v-model="gridLineThreshold" :min="10" :max="200" :step="10" />
+                      <p class="text-xs text-gray-500 mt-1">{{ t('params.lineThreshold.description') }}</p>
+                    </div>
+
+                    <div v-if="gridAutoDetect">
+                      <div class="flex justify-between text-sm mb-1">
+                        <label>{{ t('params.minLineLengthRatio.label') }}: {{ gridMinLineLengthRatio.toFixed(2) }}</label>
+                      </div>
+                      <URange v-model="gridMinLineLengthRatio" :min="0.1" :max="1.0" :step="0.05" />
+                      <p class="text-xs text-gray-500 mt-1">{{ t('params.minLineLengthRatio.description') }}</p>
+                    </div>
+                  </template>
                 </div>
               </div>
 
