@@ -1045,7 +1045,7 @@ function onDrop(e: DragEvent) {
 .params-section {
   margin-bottom: 1.5rem;
   padding-bottom: 1.5rem;
-  border-bottom: 1px solid rgba(0, 255, 249, 0.1);
+  border-bottom: 1px solid rgba(0, 229, 224, 0.15);
 }
 
 .params-section:last-child {
@@ -1056,8 +1056,8 @@ function onDrop(e: DragEvent) {
 
 .params-title {
   font-family: var(--font-pixel);
-  font-size: 0.75rem;
-  color: var(--text-muted);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.15em;
   margin: 0 0 1rem 0;
@@ -1066,7 +1066,7 @@ function onDrop(e: DragEvent) {
 .output-sizes-section {
   margin-top: 1.5rem;
   padding-top: 1.5rem;
-  border-top: 1px solid rgba(0, 255, 249, 0.1);
+  border-top: 1px solid rgba(0, 229, 224, 0.15);
   border-bottom: none;
 }
 
@@ -1078,8 +1078,8 @@ function onDrop(e: DragEvent) {
 
 .toggle-hint {
   font-family: var(--font-pixel);
-  font-size: 0.875rem;
-  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  color: var(--text-primary);
 }
 
 .file-preview {
@@ -1090,7 +1090,7 @@ function onDrop(e: DragEvent) {
   max-height: 150px;
   max-width: 100%;
   border-radius: 4px;
-  border: 1px solid rgba(0, 255, 249, 0.3);
+  border: 1px solid rgba(0, 229, 224, 0.4);
   margin-bottom: 0.75rem;
 }
 
@@ -1104,7 +1104,7 @@ function onDrop(e: DragEvent) {
 
 .upload-zone.has-file {
   border-style: solid;
-  border-color: rgba(0, 255, 249, 0.4);
+  border-color: rgba(0, 229, 224, 0.5);
 }
 
 /* Responsive */

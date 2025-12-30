@@ -3,6 +3,9 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ['@nuxt/ui', '@nuxtjs/i18n'],
 
+  // Global CSS
+  css: ['~/assets/css/main.css'],
+
   // i18n configuration
   i18n: {
     locales: [
