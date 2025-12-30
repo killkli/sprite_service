@@ -80,7 +80,23 @@ graph LR
     *   Open your browser and navigate to: **http://localhost:3000**
     *   (The internal API at port 8000 is intentionally unreachable directly).
 
-### 6. Development Guide
+### 6. Example Showcase
+We generated a Wuxia swordman character sheet using AI image generation (from text prompt) and processed it through Sprite Service.
+
+**Input Prompt**: "Generate a set of swordman sprites for a Wuxia game, including various angles, in anime/cartoon style (not pixel art)..." (See `example/prompt.txt`)
+
+| Original Image | Background Removal | Sprite Detection |
+| :---: | :---: | :---: |
+| <img src="example/generated.png" width="200"> | <img src="example/debug_background_removal.png" width="200"> | <img src="example/detection_visualization.jpg" width="200"> |
+
+**Output Results**:
+| Large (256px) | Medium (128px) | Small (64px) |
+| :---: | :---: | :---: |
+| <img src="example/large/sprite_000.png" width="128"> | <img src="example/medium/sprite_000.png" width="64"> | <img src="example/small/sprite_000.png" width="32"> |
+
+*(See `example/` directory for full output)*
+
+### 7. Development Guide
 
 #### Directory Structure
 ```
@@ -174,7 +190,23 @@ For Android app development instructions, please refer to [android_app/README.md
     *   開啟瀏覽器並前往: **http://localhost:3000**
     *   (基於安全考量，Port 8000 的 API 無法直接連線，請務必透過前端操作)。
 
-### 5. 開發指南
+### 5. 成果範例
+以下展示使用文生圖模型生成武俠遊戲劍客素材，並經由 Sprite Service 自動化處理的成果。
+
+**提示詞 (Prompt)**: 「我需要一組提示詞能夠讓生圖模型產生武俠遊戲中的劍客 sprites (一張圖中要有這個劍客所需的個個角度 sprite 資源，並方便切割） 不是像素風格，是動畫卡通風格」(完整內容請見 `example/prompt.txt`)
+
+| 原始生成圖 | AI 去背預覽 | Sprite 偵測 |
+| :---: | :---: | :---: |
+| <img src="example/generated.png" width="200"> | <img src="example/debug_background_removal.png" width="200"> | <img src="example/detection_visualization.jpg" width="200"> |
+
+**輸出 Sprite**:
+| 大 (Large) | 中 (Medium) | 小 (Small) |
+| :---: | :---: | :---: |
+| <img src="example/large/sprite_000.png" width="128"> | <img src="example/medium/sprite_000.png" width="64"> | <img src="example/small/sprite_000.png" width="32"> |
+
+*(完整輸出請見 `example/` 目錄)*
+
+### 6. 開發指南
 
 #### 專案結構說明
 ```
