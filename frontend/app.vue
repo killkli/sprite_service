@@ -3,8 +3,12 @@ import { ref, computed } from 'vue'
 
 const { t, locale, setLocale } = useI18n()
 
+// === Tab State ===
+const activeTab = ref<'upload' | 'generate'>('upload')
+
 // === Upload Mode State ===
 const file = ref<File | null>(null)
+const filePreviewUrl = ref<string | null>(null)
 const uploadTaskId = ref<string | null>(null)
 const uploadStatus = ref<string>('IDLE')
 const uploadError = ref<string | null>(null)
@@ -54,18 +58,17 @@ interface CustomSize {
   name: string
   width: number
   height: number
-  maxDimension: number
 }
 
 const useCustomSizes = ref<boolean>(false)
 const customSizes = ref<CustomSize[]>([
-  { name: 'large', width: 256, height: 256, maxDimension: 256 },
-  { name: 'medium', width: 128, height: 128, maxDimension: 128 },
-  { name: 'small', width: 64, height: 64, maxDimension: 64 }
+  { name: 'large', width: 256, height: 256 },
+  { name: 'medium', width: 128, height: 128 },
+  { name: 'small', width: 64, height: 64 }
 ])
 
 function addCustomSize() {
-  customSizes.value.push({ name: '', width: 64, height: 64, maxDimension: 64 })
+  customSizes.value.push({ name: '', width: 64, height: 64 })
 }
 
 function removeCustomSize(index: number) {
@@ -79,7 +82,7 @@ function getOutputSizesJson(): string | null {
   const sizes: Record<string, number[]> = {}
   for (const size of customSizes.value) {
     if (size.name.trim()) {
-      sizes[size.name.trim()] = [size.width, size.height, size.maxDimension]
+      sizes[size.name.trim()] = [size.width, size.height]
     }
   }
   return Object.keys(sizes).length > 0 ? JSON.stringify(sizes) : null
@@ -97,17 +100,15 @@ const languageOptions = [
   { label: 'English', value: 'en' }
 ]
 
-// Tab items for UTabs
-const tabItems = computed(() => [
-  { label: t('tabs.upload'), icon: 'i-heroicons-arrow-up-tray', slot: 'upload' },
-  { label: t('tabs.generate'), icon: 'i-heroicons-sparkles', slot: 'generate' }
-])
-
 // === Upload Mode Functions ===
 function onFileChange(e: Event) {
   const input = e.target as HTMLInputElement
   if (input.files && input.files[0]) {
     file.value = input.files[0]
+    if (filePreviewUrl.value) {
+      URL.revokeObjectURL(filePreviewUrl.value)
+    }
+    filePreviewUrl.value = URL.createObjectURL(input.files[0])
     resetUploadState()
   }
 }
@@ -354,594 +355,785 @@ function getStatusText(status: string): string {
 function changeLanguage(lang: string) {
   setLocale(lang)
 }
+
+// Drag and drop handling
+const isDragging = ref(false)
+
+function onDragOver(e: DragEvent) {
+  e.preventDefault()
+  isDragging.value = true
+}
+
+function onDragLeave() {
+  isDragging.value = false
+}
+
+function onDrop(e: DragEvent) {
+  e.preventDefault()
+  isDragging.value = false
+  const files = e.dataTransfer?.files
+  if (files && files[0] && files[0].type.startsWith('image/')) {
+    file.value = files[0]
+    if (filePreviewUrl.value) {
+      URL.revokeObjectURL(filePreviewUrl.value)
+    }
+    filePreviewUrl.value = URL.createObjectURL(files[0])
+    resetUploadState()
+  }
+}
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-sans">
-    <UContainer class="py-12 max-w-2xl">
-      <UCard>
-        <template #header>
-          <div class="flex items-center justify-between">
-            <h1 class="text-2xl font-bold text-primary-500">{{ t('app.title') }}</h1>
-            <div class="flex items-center gap-2">
-              <USelectMenu
-                :model-value="locale"
-                :options="languageOptions"
-                value-attribute="value"
-                option-attribute="label"
-                size="sm"
-                class="w-32"
-                @update:model-value="changeLanguage"
-              />
-              <UBadge color="gray" variant="soft">{{ t('app.secureGateway') }}</UBadge>
+  <div class="app-container">
+    <!-- CRT Scanline Overlay -->
+    <div class="crt-overlay"></div>
+    <!-- Pixel Grid Background -->
+    <div class="pixel-grid-bg"></div>
+
+    <div class="main-wrapper">
+      <!-- Console Panel -->
+      <div class="console-panel corner-brackets">
+        <!-- Header -->
+        <header class="panel-header">
+          <div>
+            <h1 class="panel-title animate-flicker">{{ t('app.title') }}</h1>
+            <p class="panel-subtitle">{{ t('app.subtitle') }}</p>
+          </div>
+          <div class="header-controls">
+            <!-- Language Selector -->
+            <div class="lang-selector">
+              <select
+                :value="locale"
+                @change="changeLanguage(($event.target as HTMLSelectElement).value)"
+                class="lang-btn"
+              >
+                <option v-for="lang in languageOptions" :key="lang.value" :value="lang.value">
+                  {{ lang.label }}
+                </option>
+              </select>
+            </div>
+            <!-- Status Badge -->
+            <div class="status-badge">
+              <span>{{ t('app.secureGateway') }}</span>
             </div>
           </div>
-          <p class="text-gray-500 dark:text-gray-400 mt-2">
-            {{ t('app.subtitle') }}
-          </p>
-        </template>
+        </header>
 
-        <UTabs :items="tabItems" class="w-full">
-          <!-- Upload Tab Content -->
-          <template #upload>
-            <div class="space-y-6 pt-4">
-              <div class="flex flex-col gap-2">
-                <label class="font-medium">{{ t('upload.selectImage') }}</label>
+        <!-- Tab Navigation -->
+        <nav class="tab-nav">
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'upload' }"
+            @click="activeTab = 'upload'"
+          >
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+            </svg>
+            {{ t('tabs.upload') }}
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'generate' }"
+            @click="activeTab = 'generate'"
+          >
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+            {{ t('tabs.generate') }}
+          </button>
+        </nav>
+
+        <!-- Content Area -->
+        <div class="panel-content">
+          <!-- ==================== UPLOAD TAB ==================== -->
+          <div v-if="activeTab === 'upload'" class="tab-content">
+            <!-- File Upload Zone -->
+            <div class="form-group">
+              <label class="form-label">{{ t('upload.selectImage') }}</label>
+              <div
+                class="upload-zone"
+                :class="{ dragging: isDragging, 'has-file': file }"
+                @dragover="onDragOver"
+                @dragleave="onDragLeave"
+                @drop="onDrop"
+              >
                 <input
                   type="file"
                   accept="image/*"
                   @change="onFileChange"
-                  class="block w-full text-sm text-gray-500
-                    file:mr-4 file:py-2 file:px-4
-                    file:rounded-full file:border-0
-                    file:text-sm file:font-semibold
-                    file:bg-primary-50 file:text-primary-700
-                    hover:file:bg-primary-100
-                    dark:file:bg-gray-800 dark:file:text-primary-400
-                  "
                 />
-              </div>
-
-              <!-- Split Mode Selection -->
-              <div class="flex flex-col gap-2">
-                <label class="font-medium">{{ t('upload.splitMode') }}</label>
-                <div class="grid grid-cols-2 gap-4">
-                  <button
-                    @click="uploadSplitMode = 'auto'"
-                    :class="[
-                      'p-4 rounded-lg border-2 text-left transition-all',
-                      uploadSplitMode === 'auto'
-                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-950'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                    ]"
-                  >
-                    <div class="flex items-center gap-2 mb-1">
-                      <UIcon name="i-heroicons-sparkles" class="text-lg" />
-                      <span class="font-medium">{{ t('upload.splitModeAuto') }}</span>
-                    </div>
-                    <p class="text-xs text-gray-500">{{ t('upload.splitModeAutoDesc') }}</p>
-                  </button>
-                  <button
-                    @click="uploadSplitMode = 'grid'"
-                    :class="[
-                      'p-4 rounded-lg border-2 text-left transition-all',
-                      uploadSplitMode === 'grid'
-                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-950'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                    ]"
-                  >
-                    <div class="flex items-center gap-2 mb-1">
-                      <UIcon name="i-heroicons-table-cells" class="text-lg" />
-                      <span class="font-medium">{{ t('upload.splitModeGrid') }}</span>
-                    </div>
-                    <p class="text-xs text-gray-500">{{ t('upload.splitModeGridDesc') }}</p>
-                  </button>
+                <div v-if="!file">
+                  <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                  </svg>
+                  <p class="upload-text">Drop image here or click to browse</p>
+                  <p class="upload-hint">PNG, JPG, WebP supported</p>
                 </div>
-              </div>
-
-              <!-- Advanced Parameters Toggle -->
-              <div class="border rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
-                <button
-                  @click="showUploadAdvancedParams = !showUploadAdvancedParams"
-                  class="flex items-center justify-between w-full text-left font-medium"
-                >
-                  <span>{{ t('params.title') }}</span>
-                  <UIcon :name="showUploadAdvancedParams ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" />
-                </button>
-
-                <div v-if="showUploadAdvancedParams" class="mt-4 space-y-4">
-                  <!-- Auto Detect Mode Parameters -->
-                  <template v-if="uploadSplitMode === 'auto'">
-                    <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-400">{{ t('params.processing') }}</h4>
-
-                    <div>
-                      <div class="flex justify-between text-sm mb-1">
-                        <label>{{ t('params.distanceThreshold.label') }}: {{ uploadDistanceThreshold }}</label>
-                      </div>
-                      <URange v-model="uploadDistanceThreshold" :min="10" :max="500" :step="10" />
-                      <p class="text-xs text-gray-500 mt-1">{{ t('params.distanceThreshold.description') }}</p>
-                    </div>
-
-                    <div>
-                      <div class="flex justify-between text-sm mb-1">
-                        <label>{{ t('params.sizeRatioThreshold.label') }}: {{ uploadSizeRatioThreshold.toFixed(2) }}</label>
-                      </div>
-                      <URange v-model="uploadSizeRatioThreshold" :min="0.1" :max="1.0" :step="0.05" />
-                      <p class="text-xs text-gray-500 mt-1">{{ t('params.sizeRatioThreshold.description') }}</p>
-                    </div>
-
-                    <div>
-                      <div class="flex justify-between text-sm mb-1">
-                        <label>{{ t('params.alphaThreshold.label') }}: {{ uploadAlphaThreshold }}</label>
-                      </div>
-                      <URange v-model="uploadAlphaThreshold" :min="1" :max="254" :step="1" />
-                      <p class="text-xs text-gray-500 mt-1">{{ t('params.alphaThreshold.description') }}</p>
-                    </div>
-
-                    <div>
-                      <div class="flex justify-between text-sm mb-1">
-                        <label>{{ t('params.minAreaRatio.label') }}: {{ uploadMinAreaRatio.toFixed(4) }}</label>
-                      </div>
-                      <URange v-model="uploadMinAreaRatio" :min="0.0001" :max="0.1" :step="0.0001" />
-                      <p class="text-xs text-gray-500 mt-1">{{ t('params.minAreaRatio.description') }}</p>
-                    </div>
-
-                    <div>
-                      <div class="flex justify-between text-sm mb-1">
-                        <label>{{ t('params.maxAreaRatio.label') }}: {{ uploadMaxAreaRatio.toFixed(2) }}</label>
-                      </div>
-                      <URange v-model="uploadMaxAreaRatio" :min="0.05" :max="0.9" :step="0.05" />
-                      <p class="text-xs text-gray-500 mt-1">{{ t('params.maxAreaRatio.description') }}</p>
-                    </div>
-                  </template>
-
-                  <!-- Grid Mode Parameters -->
-                  <template v-else>
-                    <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-400">{{ t('params.gridParams') }}</h4>
-
-                    <div>
-                      <div class="flex items-center justify-between mb-2">
-                        <label class="text-sm">{{ t('params.autoDetect.label') }}</label>
-                        <UToggle v-model="gridAutoDetect" />
-                      </div>
-                      <p class="text-xs text-gray-500">{{ t('params.autoDetect.description') }}</p>
-                    </div>
-
-                    <div v-if="!gridAutoDetect" class="grid grid-cols-2 gap-4">
-                      <div>
-                        <div class="flex justify-between text-sm mb-1">
-                          <label>{{ t('params.gridRows.label') }}: {{ gridRows }}</label>
-                        </div>
-                        <URange v-model="gridRows" :min="1" :max="20" :step="1" />
-                        <p class="text-xs text-gray-500 mt-1">{{ t('params.gridRows.description') }}</p>
-                      </div>
-
-                      <div>
-                        <div class="flex justify-between text-sm mb-1">
-                          <label>{{ t('params.gridCols.label') }}: {{ gridCols }}</label>
-                        </div>
-                        <URange v-model="gridCols" :min="1" :max="20" :step="1" />
-                        <p class="text-xs text-gray-500 mt-1">{{ t('params.gridCols.description') }}</p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div class="flex justify-between text-sm mb-1">
-                        <label>{{ t('params.gridPadding.label') }}: {{ gridPadding }}</label>
-                      </div>
-                      <URange v-model="gridPadding" :min="0" :max="20" :step="1" />
-                      <p class="text-xs text-gray-500 mt-1">{{ t('params.gridPadding.description') }}</p>
-                    </div>
-
-                    <div v-if="gridAutoDetect">
-                      <div class="flex justify-between text-sm mb-1">
-                        <label>{{ t('params.lineThreshold.label') }}: {{ gridLineThreshold }}</label>
-                      </div>
-                      <URange v-model="gridLineThreshold" :min="10" :max="200" :step="10" />
-                      <p class="text-xs text-gray-500 mt-1">{{ t('params.lineThreshold.description') }}</p>
-                    </div>
-
-                    <div v-if="gridAutoDetect">
-                      <div class="flex justify-between text-sm mb-1">
-                        <label>{{ t('params.minLineLengthRatio.label') }}: {{ gridMinLineLengthRatio.toFixed(2) }}</label>
-                      </div>
-                      <URange v-model="gridMinLineLengthRatio" :min="0.1" :max="1.0" :step="0.05" />
-                      <p class="text-xs text-gray-500 mt-1">{{ t('params.minLineLengthRatio.description') }}</p>
-                    </div>
-                  </template>
-
-                  <!-- Custom Output Sizes -->
-                  <div class="border-t pt-4 mt-4">
-                    <div class="flex items-center justify-between mb-2">
-                      <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-400">{{ t('params.outputSizes.title') }}</h4>
-                      <UToggle v-model="useCustomSizes" />
-                    </div>
-                    <p class="text-xs text-gray-500 mb-3">{{ t('params.outputSizes.description') }}</p>
-
-                    <div v-if="useCustomSizes" class="space-y-3">
-                      <div
-                        v-for="(size, index) in customSizes"
-                        :key="index"
-                        class="flex items-center gap-2 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg"
-                      >
-                        <UInput
-                          v-model="size.name"
-                          :placeholder="t('params.outputSizes.namePlaceholder')"
-                          size="sm"
-                          class="w-24"
-                        />
-                        <div class="flex items-center gap-1">
-                          <UInput
-                            v-model.number="size.width"
-                            type="number"
-                            :min="16"
-                            :max="1024"
-                            size="sm"
-                            class="w-16"
-                          />
-                          <span class="text-gray-400">×</span>
-                          <UInput
-                            v-model.number="size.height"
-                            type="number"
-                            :min="16"
-                            :max="1024"
-                            size="sm"
-                            class="w-16"
-                          />
-                        </div>
-                        <UInput
-                          v-model.number="size.maxDimension"
-                          type="number"
-                          :min="16"
-                          :max="1024"
-                          size="sm"
-                          class="w-16"
-                          :placeholder="t('params.outputSizes.maxPlaceholder')"
-                        />
-                        <UButton
-                          v-if="customSizes.length > 1"
-                          icon="i-heroicons-x-mark"
-                          color="red"
-                          variant="ghost"
-                          size="xs"
-                          @click="removeCustomSize(index)"
-                        />
-                      </div>
-                      <UButton
-                        icon="i-heroicons-plus"
-                        variant="soft"
-                        size="sm"
-                        @click="addCustomSize"
-                      >
-                        {{ t('params.outputSizes.addSize') }}
-                      </UButton>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <UButton
-                v-if="file"
-                size="xl"
-                block
-                :loading="['UPLOADING', 'PENDING', 'PROCESSING'].includes(uploadStatus)"
-                @click="uploadFile"
-                :disabled="uploadStatus === 'SUCCESS'"
-              >
-                {{ uploadStatus === 'IDLE' ? t('upload.startProcessing') : t('upload.processing') }}
-              </UButton>
-
-              <!-- Upload Status Display -->
-              <div v-if="uploadStatus !== 'IDLE'" class="p-4 rounded-lg bg-gray-100 dark:bg-gray-800 transition-all">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="font-bold uppercase text-xs tracking-wider text-gray-500">{{ t('status.label') }}</span>
-                  <UBadge :color="uploadStatus === 'SUCCESS' ? 'green' : uploadStatus === 'FAILURE' ? 'red' : 'orange'">
-                    {{ getStatusText(uploadStatus) }}
-                  </UBadge>
-                </div>
-
-                <UProgress
-                  v-if="['UPLOADING', 'PENDING', 'PROCESSING'].includes(uploadStatus)"
-                  animation="carousel"
-                  class="mt-2"
-                />
-
-                <div v-if="uploadStatus === 'FAILURE'" class="mt-4 text-red-500 text-sm">
-                  {{ t('error.prefix') }} {{ uploadError }}
-                </div>
-
-                <div v-if="uploadStatus === 'SUCCESS'" class="mt-4 text-center">
-                  <p class="mb-4 text-green-600 dark:text-green-400 font-medium">{{ t('result.complete') }}</p>
-                  <UButton
-                    :to="uploadDownloadLink"
-                    external
-                    icon="i-heroicons-arrow-down-tray"
-                    size="lg"
-                    color="green"
-                  >
-                    {{ t('result.downloadZip') }}
-                  </UButton>
+                <div v-else class="file-preview">
+                  <img v-if="filePreviewUrl" :src="filePreviewUrl" alt="Preview" class="preview-image" />
+                  <p class="file-name">{{ file.name }}</p>
                 </div>
               </div>
             </div>
-          </template>
 
-          <!-- Generate Tab Content -->
-          <template #generate>
-            <div class="space-y-6 pt-4">
-              <!-- Mode Toggle -->
-              <div class="flex flex-col gap-2">
-                <label class="font-medium">{{ t('generate.mode') }}</label>
-                <div class="flex items-center gap-4">
-                  <UToggle v-model="useReferenceImage" />
-                  <span class="text-sm text-gray-600 dark:text-gray-400">
-                    {{ useReferenceImage ? t('generate.imageToImage') : t('generate.textToImage') }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- Reference Image Upload -->
-              <div v-if="useReferenceImage" class="flex flex-col gap-2">
-                <label class="font-medium">{{ t('generate.referenceImage') }}</label>
-                <div class="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-4">
-                  <div v-if="referencePreviewUrl" class="relative">
-                    <img
-                      :src="referencePreviewUrl"
-                      alt="Reference"
-                      class="max-h-48 mx-auto rounded-lg"
-                    />
-                    <UButton
-                      icon="i-heroicons-x-mark"
-                      color="red"
-                      variant="soft"
-                      size="xs"
-                      class="absolute top-2 right-2"
-                      @click="clearReferenceImage"
-                    />
-                  </div>
-                  <div v-else class="text-center">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      @change="onReferenceFileChange"
-                      class="block w-full text-sm text-gray-500
-                        file:mr-4 file:py-2 file:px-4
-                        file:rounded-full file:border-0
-                        file:text-sm file:font-semibold
-                        file:bg-primary-50 file:text-primary-700
-                        hover:file:bg-primary-100
-                        dark:file:bg-gray-800 dark:file:text-primary-400
-                      "
-                    />
-                    <p class="mt-2 text-xs text-gray-400">{{ t('generate.uploadReference') }}</p>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Prompt Input -->
-              <div class="flex flex-col gap-2">
-                <label class="font-medium">
-                  {{ useReferenceImage ? t('generate.editInstruction') : t('generate.describeSprite') }}
-                </label>
-                <UTextarea
-                  v-model="prompt"
-                  :rows="4"
-                  :placeholder="useReferenceImage ? t('generate.editPlaceholder') : t('generate.promptPlaceholder')"
-                  autoresize
-                />
-              </div>
-
-              <!-- Model Selection -->
-              <div class="flex flex-col gap-2">
-                <label class="font-medium">{{ t('generate.model') }}</label>
-                <USelectMenu
-                  v-model="model"
-                  :options="modelOptions"
-                  value-attribute="value"
-                  option-attribute="label"
-                />
-              </div>
-
-              <!-- Advanced Parameters -->
-              <div class="border rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+            <!-- Split Mode Selection -->
+            <div class="form-group">
+              <label class="form-label">{{ t('upload.splitMode') }}</label>
+              <div class="mode-grid">
                 <button
-                  @click="showAdvancedParams = !showAdvancedParams"
-                  class="flex items-center justify-between w-full text-left font-medium"
+                  class="mode-card"
+                  :class="{ active: uploadSplitMode === 'auto' }"
+                  @click="uploadSplitMode = 'auto'"
                 >
-                  <span>{{ t('params.title') }}</span>
-                  <UIcon :name="showAdvancedParams ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" />
+                  <div class="mode-card-header">
+                    <svg class="mode-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                    <span class="mode-card-title">{{ t('upload.splitModeAuto') }}</span>
+                  </div>
+                  <p class="mode-card-desc">{{ t('upload.splitModeAutoDesc') }}</p>
                 </button>
-
-                <div v-if="showAdvancedParams" class="mt-4 space-y-4">
-                  <!-- Generation Parameters -->
-                  <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-400">{{ t('params.generation') }}</h4>
-
-                  <div>
-                    <div class="flex justify-between text-sm mb-1">
-                      <label>{{ t('params.temperature.label') }}: {{ temperature.toFixed(1) }}</label>
-                    </div>
-                    <URange v-model="temperature" :min="0" :max="2" :step="0.1" />
-                    <p class="text-xs text-gray-500 mt-1">{{ t('params.temperature.description') }}</p>
+                <button
+                  class="mode-card"
+                  :class="{ active: uploadSplitMode === 'grid' }"
+                  @click="uploadSplitMode = 'grid'"
+                >
+                  <div class="mode-card-header">
+                    <svg class="mode-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="3" width="7" height="7"/>
+                      <rect x="14" y="3" width="7" height="7"/>
+                      <rect x="14" y="14" width="7" height="7"/>
+                      <rect x="3" y="14" width="7" height="7"/>
+                    </svg>
+                    <span class="mode-card-title">{{ t('upload.splitModeGrid') }}</span>
                   </div>
-
-                  <!-- Processing Parameters -->
-                  <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-400 mt-6">{{ t('params.processing') }}</h4>
-
-                  <div>
-                    <div class="flex justify-between text-sm mb-1">
-                      <label>{{ t('params.distanceThreshold.label') }}: {{ distanceThreshold }}</label>
-                    </div>
-                    <URange v-model="distanceThreshold" :min="10" :max="500" :step="10" />
-                    <p class="text-xs text-gray-500 mt-1">{{ t('params.distanceThreshold.description') }}</p>
-                  </div>
-
-                  <div>
-                    <div class="flex justify-between text-sm mb-1">
-                      <label>{{ t('params.sizeRatioThreshold.label') }}: {{ sizeRatioThreshold.toFixed(2) }}</label>
-                    </div>
-                    <URange v-model="sizeRatioThreshold" :min="0.1" :max="1.0" :step="0.05" />
-                    <p class="text-xs text-gray-500 mt-1">{{ t('params.sizeRatioThreshold.description') }}</p>
-                  </div>
-
-                  <div>
-                    <div class="flex justify-between text-sm mb-1">
-                      <label>{{ t('params.alphaThreshold.label') }}: {{ alphaThreshold }}</label>
-                    </div>
-                    <URange v-model="alphaThreshold" :min="1" :max="254" :step="1" />
-                    <p class="text-xs text-gray-500 mt-1">{{ t('params.alphaThreshold.description') }}</p>
-                  </div>
-
-                  <div>
-                    <div class="flex justify-between text-sm mb-1">
-                      <label>{{ t('params.minAreaRatio.label') }}: {{ minAreaRatio.toFixed(4) }}</label>
-                    </div>
-                    <URange v-model="minAreaRatio" :min="0.0001" :max="0.1" :step="0.0001" />
-                    <p class="text-xs text-gray-500 mt-1">{{ t('params.minAreaRatio.description') }}</p>
-                  </div>
-
-                  <div>
-                    <div class="flex justify-between text-sm mb-1">
-                      <label>{{ t('params.maxAreaRatio.label') }}: {{ maxAreaRatio.toFixed(2) }}</label>
-                    </div>
-                    <URange v-model="maxAreaRatio" :min="0.05" :max="0.9" :step="0.05" />
-                    <p class="text-xs text-gray-500 mt-1">{{ t('params.maxAreaRatio.description') }}</p>
-                  </div>
-
-                  <!-- Custom Output Sizes -->
-                  <div class="border-t pt-4 mt-4">
-                    <div class="flex items-center justify-between mb-2">
-                      <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-400">{{ t('params.outputSizes.title') }}</h4>
-                      <UToggle v-model="useCustomSizes" />
-                    </div>
-                    <p class="text-xs text-gray-500 mb-3">{{ t('params.outputSizes.description') }}</p>
-
-                    <div v-if="useCustomSizes" class="space-y-3">
-                      <div
-                        v-for="(size, index) in customSizes"
-                        :key="index"
-                        class="flex items-center gap-2 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg"
-                      >
-                        <UInput
-                          v-model="size.name"
-                          :placeholder="t('params.outputSizes.namePlaceholder')"
-                          size="sm"
-                          class="w-24"
-                        />
-                        <div class="flex items-center gap-1">
-                          <UInput
-                            v-model.number="size.width"
-                            type="number"
-                            :min="16"
-                            :max="1024"
-                            size="sm"
-                            class="w-16"
-                          />
-                          <span class="text-gray-400">×</span>
-                          <UInput
-                            v-model.number="size.height"
-                            type="number"
-                            :min="16"
-                            :max="1024"
-                            size="sm"
-                            class="w-16"
-                          />
-                        </div>
-                        <UInput
-                          v-model.number="size.maxDimension"
-                          type="number"
-                          :min="16"
-                          :max="1024"
-                          size="sm"
-                          class="w-16"
-                          :placeholder="t('params.outputSizes.maxPlaceholder')"
-                        />
-                        <UButton
-                          v-if="customSizes.length > 1"
-                          icon="i-heroicons-x-mark"
-                          color="red"
-                          variant="ghost"
-                          size="xs"
-                          @click="removeCustomSize(index)"
-                        />
-                      </div>
-                      <UButton
-                        icon="i-heroicons-plus"
-                        variant="soft"
-                        size="sm"
-                        @click="addCustomSize"
-                      >
-                        {{ t('params.outputSizes.addSize') }}
-                      </UButton>
-                    </div>
-                  </div>
-                </div>
+                  <p class="mode-card-desc">{{ t('upload.splitModeGridDesc') }}</p>
+                </button>
               </div>
-
-              <!-- Generate Button -->
-              <UButton
-                size="xl"
-                block
-                icon="i-heroicons-sparkles"
-                :loading="['UPLOADING', 'PENDING', 'GENERATING', 'PROCESSING', 'PACKAGING'].includes(generateStatus)"
-                @click="generateSprite"
-                :disabled="!prompt.trim() || generateStatus === 'SUCCESS' || (useReferenceImage && !referenceFile)"
-              >
-                {{ generateStatus === 'IDLE' ? (useReferenceImage ? t('generate.generateFromRef') : t('generate.generateSprite')) : t('generate.generating') }}
-              </UButton>
-
-              <!-- Generate Status Display -->
-              <div v-if="generateStatus !== 'IDLE'" class="p-4 rounded-lg bg-gray-100 dark:bg-gray-800 transition-all">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="font-bold uppercase text-xs tracking-wider text-gray-500">{{ t('status.label') }}</span>
-                  <UBadge :color="generateStatus === 'SUCCESS' ? 'green' : generateStatus === 'FAILURE' ? 'red' : 'orange'">
-                    {{ getStatusText(generateStatus) }}
-                  </UBadge>
-                </div>
-
-                <UProgress
-                  v-if="['UPLOADING', 'PENDING', 'GENERATING', 'PROCESSING', 'PACKAGING'].includes(generateStatus)"
-                  animation="carousel"
-                  class="mt-2"
-                />
-
-                <div v-if="generateStatus === 'FAILURE'" class="mt-4 text-red-500 text-sm">
-                  {{ t('error.prefix') }} {{ generateError }}
-                </div>
-
-                <div v-if="generateStatus === 'SUCCESS'" class="mt-4 text-center">
-                  <p class="mb-4 text-green-600 dark:text-green-400 font-medium">{{ t('result.complete') }}</p>
-                  <UButton
-                    :to="generateDownloadLink"
-                    external
-                    icon="i-heroicons-arrow-down-tray"
-                    size="lg"
-                    color="green"
-                  >
-                    {{ t('result.downloadSprites') }}
-                  </UButton>
-                  <UButton
-                    class="mt-2"
-                    variant="soft"
-                    block
-                    @click="resetGenerateState"
-                  >
-                    {{ t('result.generateAnother') }}
-                  </UButton>
-                </div>
-              </div>
-
-              <!-- Info Box -->
-              <UAlert
-                icon="i-heroicons-information-circle"
-                color="blue"
-                variant="soft"
-                :title="t('info.title')"
-                :description="useReferenceImage ? t('info.imageToImage') : t('info.textToImage')"
-              />
             </div>
-          </template>
-        </UTabs>
-      </UCard>
-    </UContainer>
+
+            <!-- Advanced Parameters Accordion -->
+            <div class="accordion">
+              <button
+                class="accordion-header"
+                :class="{ open: showUploadAdvancedParams }"
+                @click="showUploadAdvancedParams = !showUploadAdvancedParams"
+              >
+                <span>{{ t('params.title') }}</span>
+                <svg class="accordion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </button>
+
+              <div v-if="showUploadAdvancedParams" class="accordion-content">
+                <!-- Auto Detect Mode Parameters -->
+                <template v-if="uploadSplitMode === 'auto'">
+                  <div class="params-section">
+                    <h4 class="params-title">{{ t('params.processing') }}</h4>
+
+                    <div class="range-group">
+                      <div class="range-header">
+                        <span class="range-label">{{ t('params.distanceThreshold.label') }}</span>
+                        <span class="range-value">{{ uploadDistanceThreshold }}</span>
+                      </div>
+                      <input type="range" v-model.number="uploadDistanceThreshold" :min="10" :max="500" :step="10" />
+                      <p class="range-desc">{{ t('params.distanceThreshold.description') }}</p>
+                    </div>
+
+                    <div class="range-group">
+                      <div class="range-header">
+                        <span class="range-label">{{ t('params.sizeRatioThreshold.label') }}</span>
+                        <span class="range-value">{{ uploadSizeRatioThreshold.toFixed(2) }}</span>
+                      </div>
+                      <input type="range" v-model.number="uploadSizeRatioThreshold" :min="0.1" :max="1.0" :step="0.05" />
+                      <p class="range-desc">{{ t('params.sizeRatioThreshold.description') }}</p>
+                    </div>
+
+                    <div class="range-group">
+                      <div class="range-header">
+                        <span class="range-label">{{ t('params.alphaThreshold.label') }}</span>
+                        <span class="range-value">{{ uploadAlphaThreshold }}</span>
+                      </div>
+                      <input type="range" v-model.number="uploadAlphaThreshold" :min="1" :max="254" :step="1" />
+                      <p class="range-desc">{{ t('params.alphaThreshold.description') }}</p>
+                    </div>
+
+                    <div class="range-group">
+                      <div class="range-header">
+                        <span class="range-label">{{ t('params.minAreaRatio.label') }}</span>
+                        <span class="range-value">{{ uploadMinAreaRatio.toFixed(4) }}</span>
+                      </div>
+                      <input type="range" v-model.number="uploadMinAreaRatio" :min="0.0001" :max="0.1" :step="0.0001" />
+                      <p class="range-desc">{{ t('params.minAreaRatio.description') }}</p>
+                    </div>
+
+                    <div class="range-group">
+                      <div class="range-header">
+                        <span class="range-label">{{ t('params.maxAreaRatio.label') }}</span>
+                        <span class="range-value">{{ uploadMaxAreaRatio.toFixed(2) }}</span>
+                      </div>
+                      <input type="range" v-model.number="uploadMaxAreaRatio" :min="0.05" :max="0.9" :step="0.05" />
+                      <p class="range-desc">{{ t('params.maxAreaRatio.description') }}</p>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Grid Mode Parameters -->
+                <template v-else>
+                  <div class="params-section">
+                    <h4 class="params-title">{{ t('params.gridParams') }}</h4>
+
+                    <div class="toggle-group">
+                      <span class="toggle-label">{{ t('params.autoDetect.label') }}</span>
+                      <button
+                        class="toggle-switch"
+                        :class="{ active: gridAutoDetect }"
+                        @click="gridAutoDetect = !gridAutoDetect"
+                      ></button>
+                    </div>
+                    <p class="range-desc" style="margin-top: -0.5rem; margin-bottom: 1rem;">{{ t('params.autoDetect.description') }}</p>
+
+                    <div v-if="!gridAutoDetect" class="grid-inputs">
+                      <div class="range-group">
+                        <div class="range-header">
+                          <span class="range-label">{{ t('params.gridRows.label') }}</span>
+                          <span class="range-value">{{ gridRows }}</span>
+                        </div>
+                        <input type="range" v-model.number="gridRows" :min="1" :max="20" :step="1" />
+                      </div>
+
+                      <div class="range-group">
+                        <div class="range-header">
+                          <span class="range-label">{{ t('params.gridCols.label') }}</span>
+                          <span class="range-value">{{ gridCols }}</span>
+                        </div>
+                        <input type="range" v-model.number="gridCols" :min="1" :max="20" :step="1" />
+                      </div>
+                    </div>
+
+                    <div class="range-group">
+                      <div class="range-header">
+                        <span class="range-label">{{ t('params.gridPadding.label') }}</span>
+                        <span class="range-value">{{ gridPadding }}</span>
+                      </div>
+                      <input type="range" v-model.number="gridPadding" :min="0" :max="20" :step="1" />
+                      <p class="range-desc">{{ t('params.gridPadding.description') }}</p>
+                    </div>
+
+                    <template v-if="gridAutoDetect">
+                      <div class="range-group">
+                        <div class="range-header">
+                          <span class="range-label">{{ t('params.lineThreshold.label') }}</span>
+                          <span class="range-value">{{ gridLineThreshold }}</span>
+                        </div>
+                        <input type="range" v-model.number="gridLineThreshold" :min="10" :max="200" :step="10" />
+                        <p class="range-desc">{{ t('params.lineThreshold.description') }}</p>
+                      </div>
+
+                      <div class="range-group">
+                        <div class="range-header">
+                          <span class="range-label">{{ t('params.minLineLengthRatio.label') }}</span>
+                          <span class="range-value">{{ gridMinLineLengthRatio.toFixed(2) }}</span>
+                        </div>
+                        <input type="range" v-model.number="gridMinLineLengthRatio" :min="0.1" :max="1.0" :step="0.05" />
+                        <p class="range-desc">{{ t('params.minLineLengthRatio.description') }}</p>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+
+                <!-- Custom Output Sizes -->
+                <div class="params-section output-sizes-section">
+                  <div class="toggle-group">
+                    <h4 class="params-title" style="margin: 0;">{{ t('params.outputSizes.title') }}</h4>
+                    <button
+                      class="toggle-switch"
+                      :class="{ active: useCustomSizes }"
+                      @click="useCustomSizes = !useCustomSizes"
+                    ></button>
+                  </div>
+                  <p class="range-desc">{{ t('params.outputSizes.description') }}</p>
+
+                  <div v-if="useCustomSizes" class="size-editor">
+                    <div v-for="(size, index) in customSizes" :key="index" class="size-row">
+                      <input
+                        v-model="size.name"
+                        :placeholder="t('params.outputSizes.namePlaceholder')"
+                        class="size-input name"
+                      />
+                      <input
+                        v-model.number="size.width"
+                        type="number"
+                        min="16"
+                        max="1024"
+                        class="size-input"
+                      />
+                      <span class="size-separator">×</span>
+                      <input
+                        v-model.number="size.height"
+                        type="number"
+                        min="16"
+                        max="1024"
+                        class="size-input"
+                      />
+                      <button
+                        v-if="customSizes.length > 1"
+                        class="btn-icon"
+                        @click="removeCustomSize(index)"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M18 6L6 18M6 6l12 12"/>
+                        </svg>
+                      </button>
+                    </div>
+                    <button class="btn-add-size" @click="addCustomSize">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 5v14M5 12h14"/>
+                      </svg>
+                      {{ t('params.outputSizes.addSize') }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button
+              v-if="file"
+              class="btn-primary"
+              :class="{ loading: ['UPLOADING', 'PENDING', 'PROCESSING'].includes(uploadStatus) }"
+              :disabled="['UPLOADING', 'PENDING', 'PROCESSING', 'SUCCESS'].includes(uploadStatus)"
+              @click="uploadFile"
+            >
+              <span v-if="['UPLOADING', 'PENDING', 'PROCESSING'].includes(uploadStatus)" class="spinner"></span>
+              <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+              {{ uploadStatus === 'IDLE' ? t('upload.startProcessing') : t('upload.processing') }}
+            </button>
+
+            <!-- Upload Status Display -->
+            <div v-if="uploadStatus !== 'IDLE'" class="status-panel">
+              <div class="status-header">
+                <span class="status-label">{{ t('status.label') }}</span>
+                <span
+                  class="status-indicator"
+                  :class="{
+                    success: uploadStatus === 'SUCCESS',
+                    error: uploadStatus === 'FAILURE',
+                    pending: !['SUCCESS', 'FAILURE'].includes(uploadStatus)
+                  }"
+                >
+                  {{ getStatusText(uploadStatus) }}
+                </span>
+              </div>
+
+              <div v-if="['UPLOADING', 'PENDING', 'PROCESSING'].includes(uploadStatus)" class="progress-bar"></div>
+
+              <div v-if="uploadStatus === 'FAILURE'" class="error-message">
+                {{ t('error.prefix') }} {{ uploadError }}
+              </div>
+
+              <div v-if="uploadStatus === 'SUCCESS'" class="success-result">
+                <p class="success-message">{{ t('result.complete') }}</p>
+                <a :href="uploadDownloadLink" class="btn-success" download>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                  </svg>
+                  {{ t('result.downloadZip') }}
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- ==================== GENERATE TAB ==================== -->
+          <div v-if="activeTab === 'generate'" class="tab-content">
+            <!-- Mode Toggle -->
+            <div class="form-group">
+              <label class="form-label">{{ t('generate.mode') }}</label>
+              <div class="toggle-group" style="padding: 0;">
+                <span class="toggle-hint">{{ useReferenceImage ? t('generate.imageToImage') : t('generate.textToImage') }}</span>
+                <button
+                  class="toggle-switch"
+                  :class="{ active: useReferenceImage }"
+                  @click="useReferenceImage = !useReferenceImage"
+                ></button>
+              </div>
+            </div>
+
+            <!-- Reference Image Upload -->
+            <div v-if="useReferenceImage" class="form-group">
+              <label class="form-label">{{ t('generate.referenceImage') }}</label>
+              <div class="upload-zone" :class="{ 'has-file': referenceFile }">
+                <div v-if="referencePreviewUrl" class="reference-preview">
+                  <img :src="referencePreviewUrl" alt="Reference" />
+                  <button class="btn-remove" @click="clearReferenceImage">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </div>
+                <div v-else>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    @change="onReferenceFileChange"
+                  />
+                  <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <path d="M21 15l-5-5L5 21"/>
+                  </svg>
+                  <p class="upload-text">{{ t('generate.uploadReference') }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Prompt Input -->
+            <div class="form-group">
+              <label class="form-label">
+                {{ useReferenceImage ? t('generate.editInstruction') : t('generate.describeSprite') }}
+              </label>
+              <textarea
+                v-model="prompt"
+                class="form-textarea"
+                rows="4"
+                :placeholder="useReferenceImage ? t('generate.editPlaceholder') : t('generate.promptPlaceholder')"
+              ></textarea>
+            </div>
+
+            <!-- Model Selection -->
+            <div class="form-group">
+              <label class="form-label">{{ t('generate.model') }}</label>
+              <select v-model="model" class="form-select">
+                <option v-for="opt in modelOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Advanced Parameters Accordion -->
+            <div class="accordion">
+              <button
+                class="accordion-header"
+                :class="{ open: showAdvancedParams }"
+                @click="showAdvancedParams = !showAdvancedParams"
+              >
+                <span>{{ t('params.title') }}</span>
+                <svg class="accordion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </button>
+
+              <div v-if="showAdvancedParams" class="accordion-content">
+                <!-- Generation Parameters -->
+                <div class="params-section">
+                  <h4 class="params-title">{{ t('params.generation') }}</h4>
+
+                  <div class="range-group">
+                    <div class="range-header">
+                      <span class="range-label">{{ t('params.temperature.label') }}</span>
+                      <span class="range-value">{{ temperature.toFixed(1) }}</span>
+                    </div>
+                    <input type="range" v-model.number="temperature" :min="0" :max="2" :step="0.1" />
+                    <p class="range-desc">{{ t('params.temperature.description') }}</p>
+                  </div>
+                </div>
+
+                <!-- Processing Parameters -->
+                <div class="params-section">
+                  <h4 class="params-title">{{ t('params.processing') }}</h4>
+
+                  <div class="range-group">
+                    <div class="range-header">
+                      <span class="range-label">{{ t('params.distanceThreshold.label') }}</span>
+                      <span class="range-value">{{ distanceThreshold }}</span>
+                    </div>
+                    <input type="range" v-model.number="distanceThreshold" :min="10" :max="500" :step="10" />
+                    <p class="range-desc">{{ t('params.distanceThreshold.description') }}</p>
+                  </div>
+
+                  <div class="range-group">
+                    <div class="range-header">
+                      <span class="range-label">{{ t('params.sizeRatioThreshold.label') }}</span>
+                      <span class="range-value">{{ sizeRatioThreshold.toFixed(2) }}</span>
+                    </div>
+                    <input type="range" v-model.number="sizeRatioThreshold" :min="0.1" :max="1.0" :step="0.05" />
+                    <p class="range-desc">{{ t('params.sizeRatioThreshold.description') }}</p>
+                  </div>
+
+                  <div class="range-group">
+                    <div class="range-header">
+                      <span class="range-label">{{ t('params.alphaThreshold.label') }}</span>
+                      <span class="range-value">{{ alphaThreshold }}</span>
+                    </div>
+                    <input type="range" v-model.number="alphaThreshold" :min="1" :max="254" :step="1" />
+                    <p class="range-desc">{{ t('params.alphaThreshold.description') }}</p>
+                  </div>
+
+                  <div class="range-group">
+                    <div class="range-header">
+                      <span class="range-label">{{ t('params.minAreaRatio.label') }}</span>
+                      <span class="range-value">{{ minAreaRatio.toFixed(4) }}</span>
+                    </div>
+                    <input type="range" v-model.number="minAreaRatio" :min="0.0001" :max="0.1" :step="0.0001" />
+                    <p class="range-desc">{{ t('params.minAreaRatio.description') }}</p>
+                  </div>
+
+                  <div class="range-group">
+                    <div class="range-header">
+                      <span class="range-label">{{ t('params.maxAreaRatio.label') }}</span>
+                      <span class="range-value">{{ maxAreaRatio.toFixed(2) }}</span>
+                    </div>
+                    <input type="range" v-model.number="maxAreaRatio" :min="0.05" :max="0.9" :step="0.05" />
+                    <p class="range-desc">{{ t('params.maxAreaRatio.description') }}</p>
+                  </div>
+                </div>
+
+                <!-- Custom Output Sizes -->
+                <div class="params-section output-sizes-section">
+                  <div class="toggle-group">
+                    <h4 class="params-title" style="margin: 0;">{{ t('params.outputSizes.title') }}</h4>
+                    <button
+                      class="toggle-switch"
+                      :class="{ active: useCustomSizes }"
+                      @click="useCustomSizes = !useCustomSizes"
+                    ></button>
+                  </div>
+                  <p class="range-desc">{{ t('params.outputSizes.description') }}</p>
+
+                  <div v-if="useCustomSizes" class="size-editor">
+                    <div v-for="(size, index) in customSizes" :key="index" class="size-row">
+                      <input
+                        v-model="size.name"
+                        :placeholder="t('params.outputSizes.namePlaceholder')"
+                        class="size-input name"
+                      />
+                      <input
+                        v-model.number="size.width"
+                        type="number"
+                        min="16"
+                        max="1024"
+                        class="size-input"
+                      />
+                      <span class="size-separator">×</span>
+                      <input
+                        v-model.number="size.height"
+                        type="number"
+                        min="16"
+                        max="1024"
+                        class="size-input"
+                      />
+                      <button
+                        v-if="customSizes.length > 1"
+                        class="btn-icon"
+                        @click="removeCustomSize(index)"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M18 6L6 18M6 6l12 12"/>
+                        </svg>
+                      </button>
+                    </div>
+                    <button class="btn-add-size" @click="addCustomSize">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 5v14M5 12h14"/>
+                      </svg>
+                      {{ t('params.outputSizes.addSize') }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Generate Button -->
+            <button
+              class="btn-primary"
+              :class="{ loading: ['UPLOADING', 'PENDING', 'GENERATING', 'PROCESSING', 'PACKAGING'].includes(generateStatus) }"
+              :disabled="!prompt.trim() || ['SUCCESS'].includes(generateStatus) || (useReferenceImage && !referenceFile)"
+              @click="generateSprite"
+            >
+              <span v-if="['UPLOADING', 'PENDING', 'GENERATING', 'PROCESSING', 'PACKAGING'].includes(generateStatus)" class="spinner"></span>
+              <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+              </svg>
+              {{ generateStatus === 'IDLE' ? (useReferenceImage ? t('generate.generateFromRef') : t('generate.generateSprite')) : t('generate.generating') }}
+            </button>
+
+            <!-- Generate Status Display -->
+            <div v-if="generateStatus !== 'IDLE'" class="status-panel">
+              <div class="status-header">
+                <span class="status-label">{{ t('status.label') }}</span>
+                <span
+                  class="status-indicator"
+                  :class="{
+                    success: generateStatus === 'SUCCESS',
+                    error: generateStatus === 'FAILURE',
+                    pending: !['SUCCESS', 'FAILURE'].includes(generateStatus)
+                  }"
+                >
+                  {{ getStatusText(generateStatus) }}
+                </span>
+              </div>
+
+              <div v-if="['UPLOADING', 'PENDING', 'GENERATING', 'PROCESSING', 'PACKAGING'].includes(generateStatus)" class="progress-bar"></div>
+
+              <div v-if="generateStatus === 'FAILURE'" class="error-message">
+                {{ t('error.prefix') }} {{ generateError }}
+              </div>
+
+              <div v-if="generateStatus === 'SUCCESS'" class="success-result">
+                <p class="success-message">{{ t('result.complete') }}</p>
+                <a :href="generateDownloadLink" class="btn-success" download>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                  </svg>
+                  {{ t('result.downloadSprites') }}
+                </a>
+                <button class="btn-secondary" style="width: 100%; margin-top: 0.75rem;" @click="resetGenerateState">
+                  {{ t('result.generateAnother') }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Info Alert -->
+            <div class="info-alert">
+              <svg class="info-alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 16v-4M12 8h.01"/>
+              </svg>
+              <div class="info-alert-content">
+                <p class="info-alert-title">{{ t('info.title') }}</p>
+                <p class="info-alert-text">{{ useReferenceImage ? t('info.imageToImage') : t('info.textToImage') }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem 1rem;
+  position: relative;
+}
+
+.main-wrapper {
+  width: 100%;
+  max-width: 680px;
+  position: relative;
+  z-index: 1;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.params-section {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(0, 255, 249, 0.1);
+}
+
+.params-section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.params-title {
+  font-family: var(--font-pixel);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin: 0 0 1rem 0;
+}
+
+.output-sizes-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(0, 255, 249, 0.1);
+  border-bottom: none;
+}
+
+.grid-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.toggle-hint {
+  font-family: var(--font-pixel);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.file-preview {
+  text-align: center;
+}
+
+.preview-image {
+  max-height: 150px;
+  max-width: 100%;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 255, 249, 0.3);
+  margin-bottom: 0.75rem;
+}
+
+.file-name {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--neon-cyan);
+  margin: 0;
+  word-break: break-all;
+}
+
+.upload-zone.has-file {
+  border-style: solid;
+  border-color: rgba(0, 255, 249, 0.4);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .app-container {
+    padding: 1rem 0.5rem;
+  }
+
+  .header-controls {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .grid-inputs {
+    grid-template-columns: 1fr;
+  }
+
+  .size-row {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .size-input {
+    width: 60px;
+  }
+
+  .size-input.name {
+    width: 100%;
+  }
+}
+</style>

@@ -36,11 +36,11 @@ class IntegratedSpriteProcessor:
     4. 格線偵測分割（適用於貼圖表格）
     """
 
-    # 尺寸配置
+    # 尺寸配置 (canvas_width, canvas_height)
     SIZE_PRESETS = {
-        'large': (260, 280, 280),
-        'medium': (220, 240, 240),
-        'small': (70, 96, 74)
+        'large': (280, 280),
+        'medium': (240, 240),
+        'small': (96, 74)
     }
 
     def __init__(self):
@@ -334,8 +334,8 @@ class IntegratedSpriteProcessor:
             print("找不到 sprite 檔案")
             return
 
-        for size_name, (max_size, canvas_w, canvas_h) in size_configs.items():
-            print(f"\n處理尺寸: {size_name} (max_side={max_size}, canvas={canvas_w}×{canvas_h})")
+        for size_name, (canvas_w, canvas_h) in size_configs.items():
+            print(f"\n處理尺寸: {size_name} (canvas={canvas_w}×{canvas_h}, fit-within-bounds)")
 
             output_dir = Path(output_base_dir) / size_name
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -348,7 +348,7 @@ class IntegratedSpriteProcessor:
                         image = image.convert('RGBA')
 
                     # 調整大小並置中
-                    processed = self._resize_and_center(image, max_size, canvas_w, canvas_h)
+                    processed = self._resize_and_center(image, canvas_w, canvas_h)
 
                     output_path = output_dir / sprite_file.name
                     processed.save(output_path, 'PNG')
@@ -362,20 +362,21 @@ class IntegratedSpriteProcessor:
 
         print(f"\n✓ 所有尺寸調整完成")
 
-    def _resize_and_center(self, image, max_size, canvas_width, canvas_height):
+    def _resize_and_center(self, image, canvas_width, canvas_height):
         """調整圖片大小並置中
-        
-        Resize image so that the longer side equals max_size (both upscale and downscale),
+
+        Resize image to fit within canvas bounds (no cropping), preserving aspect ratio,
         then center it on a canvas of specified dimensions.
-        將圖片縮放使長邊等於 max_size（支援放大和縮小），然後置中於指定尺寸的畫布上。
+        將圖片縮放使其完全適合畫布範圍（不裁切），保持長寬比，然後置中於指定尺寸的畫布上。
         """
         orig_width, orig_height = image.size
-        longer_side = max(orig_width, orig_height)
 
-        # Always scale to max_size (both upscale and downscale)
-        # 始終縮放到 max_size（支援放大和縮小）
-        if longer_side != max_size and longer_side > 0:
-            scale = max_size / longer_side
+        # Calculate scale to fit within canvas bounds (no cropping)
+        # 計算縮放比例，使圖片完全適合畫布範圍（不裁切）
+        if orig_width > 0 and orig_height > 0:
+            scale_w = canvas_width / orig_width
+            scale_h = canvas_height / orig_height
+            scale = min(scale_w, scale_h)  # Use smaller scale to ensure sprite fits
             new_width = int(orig_width * scale)
             new_height = int(orig_height * scale)
         else:
@@ -680,7 +681,7 @@ class IntegratedSpriteProcessor:
             padding: 裁切內縮邊距
             line_threshold: 線偵測閾值
             min_line_length_ratio: 最小線長比例
-            output_sizes: 輸出尺寸設定 (dict: name -> (max_size, w, h))
+            output_sizes: 輸出尺寸設定 (dict: name -> (w, h))
         """
         print(f"\n{'#'*60}")
         print(f"# Sprite Processor - 格線分割模式")
@@ -710,8 +711,8 @@ class IntegratedSpriteProcessor:
         
         # 顯示輸出的尺寸目錄
         sizes = output_sizes if output_sizes else self.SIZE_PRESETS
-        for size_name, (max_s, w, h) in sizes.items():
-            print(f"  ├── {size_name:<18} ({len(sprite_paths)} 個 {w}x{h}, max={max_s})")
+        for size_name, (w, h) in sizes.items():
+            print(f"  ├── {size_name:<18} ({len(sprite_paths)} 個 {w}x{h})")
 
         print(f"  └── grid_detection_visualization.jpg")
         print(f"{'='*60}\n")
@@ -733,7 +734,7 @@ class IntegratedSpriteProcessor:
             alpha_threshold: Alpha 通道二值化閾值
             min_area_ratio: 最小面積比例
             max_area_ratio: 最大面積比例
-            output_sizes: 輸出尺寸設定 (dict: name -> (max_size, w, h))
+            output_sizes: 輸出尺寸設定 (dict: name -> (w, h))
         """
         print(f"\n{'#'*60}")
         print(f"# Sprite Processor - 一站式處理工具")
@@ -762,8 +763,8 @@ class IntegratedSpriteProcessor:
         
         # 顯示輸出的尺寸目錄
         sizes = output_sizes if output_sizes else self.SIZE_PRESETS
-        for size_name, (max_s, w, h) in sizes.items():
-            print(f"  ├── {size_name:<18} ({len(sprite_paths)} 個 {w}x{h}, max={max_s})")
+        for size_name, (w, h) in sizes.items():
+            print(f"  ├── {size_name:<18} ({len(sprite_paths)} 個 {w}x{h})")
 
         print(f"  ├── debug_background_removal.png")
         print(f"  └── detection_visualization.jpg")
@@ -786,7 +787,7 @@ class IntegratedSpriteProcessor:
             alpha_threshold: Alpha 通道二值化閾值
             min_area_ratio: 最小面積比例
             max_area_ratio: 最大面積比例
-            output_sizes: 輸出尺寸設定 (dict: name -> (max_size, w, h))
+            output_sizes: 輸出尺寸設定 (dict: name -> (w, h))
         """
         input_path = Path(input_dir)
         output_path = Path(output_base_dir)
@@ -878,29 +879,28 @@ class IntegratedSpriteProcessor:
 def parse_sizes_arg(sizes_str):
     """
     解析尺寸參數字串
-    Format: name:max:w:h,name2:max:w:h
-    Example: large:260:280:280,custom:100:100:100
+    Format: name:w:h,name2:w:h
+    Example: large:280:280,custom:100:100
     """
     if not sizes_str:
         return None
-        
+
     sizes = {}
     try:
         for item in sizes_str.split(','):
             parts = item.split(':')
-            if len(parts) != 4:
+            if len(parts) != 3:
                 raise ValueError(f"Invalid format for size item: {item}")
-            
+
             name = parts[0]
-            max_size = int(parts[1])
-            w = int(parts[2])
-            h = int(parts[3])
-            
-            sizes[name] = (max_size, w, h)
+            w = int(parts[1])
+            h = int(parts[2])
+
+            sizes[name] = (w, h)
         return sizes
     except Exception as e:
         print(f"Error parsing sizes argument: {e}")
-        print("Format should be: name:max_size:width:height,name2:...")
+        print("Format should be: name:width:height,name2:...")
         sys.exit(1)
 
 
@@ -916,7 +916,7 @@ def main():
     %(prog)s input.png --distance 100 --size-ratio 0.5
 
   自訂輸出尺寸:
-    %(prog)s input.png --sizes "icon:64:64:64,card:200:200:300"
+    %(prog)s input.png --sizes "icon:64:64,card:200:300"
 
   批次處理目錄:
     %(prog)s --batch input_dir
@@ -971,7 +971,7 @@ def main():
     )
     parser.add_argument(
         '--sizes',
-        help='自訂輸出尺寸 (格式: name:max_size:width:height,name2:...)，例如: large:260:280:280,icon:64:64:64'
+        help='自訂輸出尺寸 (格式: name:width:height,name2:...)，例如: large:280:280,icon:64:64'
     )
 
     args = parser.parse_args()

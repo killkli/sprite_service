@@ -42,7 +42,7 @@ class ProcessingParams(BaseModel):
     )
     output_sizes: Optional[Dict[str, list]] = Field(
         default=None,
-        description="自訂輸出尺寸 / Custom output sizes (e.g., {'icon': [64, 64, 64]})"
+        description="自訂輸出尺寸 / Custom output sizes (e.g., {'icon': [64, 64]})"
     )
 
 
@@ -146,7 +146,7 @@ async def create_process_task(
     - **alpha_threshold**: Alpha 通道閾值 (1-254) / Alpha channel threshold
     - **min_area_ratio**: 最小面積比例 (0.0001-0.1) / Min area ratio
     - **max_area_ratio**: 最大面積比例 (0.05-0.9) / Max area ratio
-    - **output_sizes_json**: 自訂輸出尺寸 JSON 字串 / Custom output sizes JSON string (e.g. '{"icon": [64, 64, 64]}')
+    - **output_sizes_json**: 自訂輸出尺寸 JSON 字串 / Custom output sizes JSON string (e.g. '{"icon": [64, 64]}')
     """
     # 產生唯一 ID
     task_id = str(uuid.uuid4())
