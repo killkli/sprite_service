@@ -53,7 +53,10 @@ Browser :3000 → Nuxt 3 Frontend → [Docker Network] → FastAPI :8000 → Cel
 
 ### Key Files
 - `api/main.py` - Endpoints: `/process`, `/process/grid`, `/status/{id}`, `/download/{id}`, `/generate`
+  - All processing endpoints now support `output_sizes_json` (stringified JSON) or `output_sizes` (for direct API calls) to override the default Large/Medium/Small presets.
 - `worker/sprite_processor.py` - `IntegratedSpriteProcessor` class (core AI logic)
+  - Added support for custom `size_configs` in `resize_sprites` and `process` methods.
+  - CLI now supports `--sizes "name:max:w:h,..."` argument.
 - `frontend/server/api/` - Nuxt server routes proxying to internal API
 
 ### Data Flow

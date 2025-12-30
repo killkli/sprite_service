@@ -28,7 +28,8 @@ DEFAULT_PROCESSING_PARAMS = {
     "size_ratio_threshold": 0.4,
     "alpha_threshold": 50,
     "min_area_ratio": 0.0005,
-    "max_area_ratio": 0.25
+    "max_area_ratio": 0.25,
+    "output_sizes": None
 }
 
 
@@ -65,7 +66,8 @@ def process_sprite(self, input_path, task_id, processing_params=None):
             size_ratio_threshold=params["size_ratio_threshold"],
             alpha_threshold=params["alpha_threshold"],
             min_area_ratio=params["min_area_ratio"],
-            max_area_ratio=params["max_area_ratio"]
+            max_area_ratio=params["max_area_ratio"],
+            output_sizes=params.get("output_sizes")
         )
 
         # 將結果打包成 Zip
@@ -97,7 +99,8 @@ DEFAULT_GRID_PARAMS = {
     "cols": None,
     "padding": 2,
     "line_threshold": 50,
-    "min_line_length_ratio": 0.3
+    "min_line_length_ratio": 0.3,
+    "output_sizes": None
 }
 
 
@@ -135,7 +138,8 @@ def process_sprite_grid(self, input_path, task_id, grid_params=None):
             cols=params["cols"],
             padding=params["padding"],
             line_threshold=params["line_threshold"],
-            min_line_length_ratio=params["min_line_length_ratio"]
+            min_line_length_ratio=params["min_line_length_ratio"],
+            output_sizes=params.get("output_sizes")
         )
 
         # 將結果打包成 Zip
@@ -259,7 +263,8 @@ def generate_and_process_task(
             size_ratio_threshold=params["size_ratio_threshold"],
             alpha_threshold=params["alpha_threshold"],
             min_area_ratio=params["min_area_ratio"],
-            max_area_ratio=params["max_area_ratio"]
+            max_area_ratio=params["max_area_ratio"],
+            output_sizes=params.get("output_sizes")
         )
 
         # Step 3: 打包輸出
@@ -405,7 +410,8 @@ def generate_with_reference_and_process_task(
             size_ratio_threshold=params["size_ratio_threshold"],
             alpha_threshold=params["alpha_threshold"],
             min_area_ratio=params["min_area_ratio"],
-            max_area_ratio=params["max_area_ratio"]
+            max_area_ratio=params["max_area_ratio"],
+            output_sizes=params.get("output_sizes")
         )
 
         # Step 3: 打包輸出

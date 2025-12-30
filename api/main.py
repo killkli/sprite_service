@@ -1,12 +1,13 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Dict
 from celery import Celery
 import shutil
 import os
 import uuid
 import base64
+import json
 
 
 class ProcessingParams(BaseModel):
@@ -38,6 +39,10 @@ class ProcessingParams(BaseModel):
         default=0.25,
         ge=0.05, le=0.9,
         description="最大面積比例 / Maximum area ratio"
+    )
+    output_sizes: Optional[Dict[str, list]] = Field(
+        default=None,
+        description="自訂輸出尺寸 / Custom output sizes (e.g., {'icon': [64, 64, 64]})"
     )
 
 
@@ -75,6 +80,10 @@ class GridParams(BaseModel):
         ge=0.1, le=1.0,
         description="最小線長比例 / Minimum line length ratio"
     )
+    output_sizes: Optional[Dict[str, list]] = Field(
+        default=None,
+        description="自訂輸出尺寸 / Custom output sizes"
+    )
 
 
 class GenerateRequest(BaseModel):
@@ -96,6 +105,7 @@ class GenerateRequest(BaseModel):
     alpha_threshold: int = Field(default=50, ge=1, le=254)
     min_area_ratio: float = Field(default=0.0005, ge=0.0001, le=0.1)
     max_area_ratio: float = Field(default=0.25, ge=0.05, le=0.9)
+    output_sizes: Optional[Dict[str, list]] = Field(default=None)
 
 # 初始化 FastAPI
 app = FastAPI(title="Sprite Processing Service")
@@ -123,7 +133,8 @@ async def create_process_task(
     size_ratio_threshold: float = Form(0.4),
     alpha_threshold: int = Form(50),
     min_area_ratio: float = Form(0.0005),
-    max_area_ratio: float = Form(0.25)
+    max_area_ratio: float = Form(0.25),
+    output_sizes_json: Optional[str] = Form(None)
 ):
     """
     上傳圖片並建立處理任務
@@ -135,6 +146,7 @@ async def create_process_task(
     - **alpha_threshold**: Alpha 通道閾值 (1-254) / Alpha channel threshold
     - **min_area_ratio**: 最小面積比例 (0.0001-0.1) / Min area ratio
     - **max_area_ratio**: 最大面積比例 (0.05-0.9) / Max area ratio
+    - **output_sizes_json**: 自訂輸出尺寸 JSON 字串 / Custom output sizes JSON string (e.g. '{"icon": [64, 64, 64]}')
     """
     # 產生唯一 ID
     task_id = str(uuid.uuid4())
@@ -148,13 +160,22 @@ async def create_process_task(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"File save error: {str(e)}")
 
+    # 解析 output_sizes
+    output_sizes = None
+    if output_sizes_json:
+        try:
+            output_sizes = json.loads(output_sizes_json)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid JSON format for output_sizes_json")
+
     # 處理參數
     processing_params = {
         "distance_threshold": distance_threshold,
         "size_ratio_threshold": size_ratio_threshold,
         "alpha_threshold": alpha_threshold,
         "min_area_ratio": min_area_ratio,
-        "max_area_ratio": max_area_ratio
+        "max_area_ratio": max_area_ratio,
+        "output_sizes": output_sizes
     }
 
     # 發送任務給 Worker
@@ -179,7 +200,8 @@ async def create_process_grid_task(
     cols: Optional[int] = Form(None),
     padding: int = Form(2),
     line_threshold: int = Form(50),
-    min_line_length_ratio: float = Form(0.3)
+    min_line_length_ratio: float = Form(0.3),
+    output_sizes_json: Optional[str] = Form(None)
 ):
     """
     上傳圖片並使用格線分割模式建立處理任務
@@ -192,6 +214,7 @@ async def create_process_grid_task(
     - **padding**: 格線內縮邊距 / Grid cell inner padding in pixels
     - **line_threshold**: 線條偵測閾值 / Line detection threshold
     - **min_line_length_ratio**: 最小線長比例 / Minimum line length ratio
+    - **output_sizes_json**: 自訂輸出尺寸 JSON 字串 / Custom output sizes JSON string
     """
     # 產生唯一 ID
     task_id = str(uuid.uuid4())
@@ -205,6 +228,14 @@ async def create_process_grid_task(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"File save error: {str(e)}")
 
+    # 解析 output_sizes
+    output_sizes = None
+    if output_sizes_json:
+        try:
+            output_sizes = json.loads(output_sizes_json)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid JSON format for output_sizes_json")
+
     # 格線參數
     grid_params = {
         "auto_detect": auto_detect,
@@ -212,7 +243,8 @@ async def create_process_grid_task(
         "cols": cols,
         "padding": padding,
         "line_threshold": line_threshold,
-        "min_line_length_ratio": min_line_length_ratio
+        "min_line_length_ratio": min_line_length_ratio,
+        "output_sizes": output_sizes
     }
 
     # 發送任務給 Worker
@@ -259,7 +291,8 @@ async def create_generate_task(request: GenerateRequest):
         "size_ratio_threshold": request.size_ratio_threshold,
         "alpha_threshold": request.alpha_threshold,
         "min_area_ratio": request.min_area_ratio,
-        "max_area_ratio": request.max_area_ratio
+        "max_area_ratio": request.max_area_ratio,
+        "output_sizes": request.output_sizes
     }
 
     # 選擇任務類型
@@ -297,7 +330,8 @@ async def create_generate_with_reference_task(
     size_ratio_threshold: float = Form(0.4),
     alpha_threshold: int = Form(50),
     min_area_ratio: float = Form(0.0005),
-    max_area_ratio: float = Form(0.25)
+    max_area_ratio: float = Form(0.25),
+    output_sizes_json: Optional[str] = Form(None)
 ):
     """
     使用參考圖片進行 Image-to-Image 生成
@@ -308,6 +342,7 @@ async def create_generate_with_reference_task(
     - **auto_process**: 是否自動進入 Sprite 處理 / Auto process into sprites
     - **reference_image**: 參考圖片檔案 / Reference image file
     - **temperature**: 生成溫度 (0.0-2.0) / Generation temperature
+    - **output_sizes_json**: 自訂輸出尺寸 JSON 字串
     - Processing parameters for sprite detection/merging
     """
     # 驗證 prompt 不為空
@@ -333,13 +368,22 @@ async def create_generate_with_reference_task(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Reference image save error: {str(e)}")
 
+    # 解析 output_sizes
+    output_sizes = None
+    if output_sizes_json:
+        try:
+            output_sizes = json.loads(output_sizes_json)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid JSON format for output_sizes_json")
+
     # 處理參數
     processing_params = {
         "distance_threshold": distance_threshold,
         "size_ratio_threshold": size_ratio_threshold,
         "alpha_threshold": alpha_threshold,
         "min_area_ratio": min_area_ratio,
-        "max_area_ratio": max_area_ratio
+        "max_area_ratio": max_area_ratio,
+        "output_sizes": output_sizes
     }
 
     # 選擇任務類型

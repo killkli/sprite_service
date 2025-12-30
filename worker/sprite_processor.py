@@ -658,7 +658,8 @@ class IntegratedSpriteProcessor:
 
     def process_grid(self, input_image, output_dir="output_processed",
                      auto_detect=True, rows=None, cols=None,
-                     padding=2, line_threshold=50, min_line_length_ratio=0.3):
+                     padding=2, line_threshold=50, min_line_length_ratio=0.3,
+                     output_sizes=None):
         """
         格線分割完整處理流程
         Full grid-based processing pipeline
@@ -672,6 +673,7 @@ class IntegratedSpriteProcessor:
             padding: 裁切內縮邊距
             line_threshold: 線偵測閾值
             min_line_length_ratio: 最小線長比例
+            output_sizes: 輸出尺寸設定 (dict: name -> (max_size, w, h))
         """
         print(f"\n{'#'*60}")
         print(f"# Sprite Processor - 格線分割模式")
@@ -690,7 +692,7 @@ class IntegratedSpriteProcessor:
         )
 
         # 執行尺寸調整
-        self.resize_sprites(original_dir, output_dir)
+        self.resize_sprites(original_dir, output_dir, size_configs=output_sizes)
 
         # 輸出總結
         print(f"\n{'='*60}")
@@ -698,9 +700,12 @@ class IntegratedSpriteProcessor:
         print(f"{'='*60}")
         print(f"輸出目錄: {output_dir}/")
         print(f"  ├── original_sprites/  ({len(sprite_paths)} 個原始 sprites)")
-        print(f"  ├── large/             ({len(sprite_paths)} 個 280x280)")
-        print(f"  ├── medium/            ({len(sprite_paths)} 個 240x240)")
-        print(f"  ├── small/             ({len(sprite_paths)} 個 96x74)")
+        
+        # 顯示輸出的尺寸目錄
+        sizes = output_sizes if output_sizes else self.SIZE_PRESETS
+        for size_name, (max_s, w, h) in sizes.items():
+            print(f"  ├── {size_name:<18} ({len(sprite_paths)} 個 {w}x{h}, max={max_s})")
+
         print(f"  └── grid_detection_visualization.jpg")
         print(f"{'='*60}\n")
 
@@ -708,7 +713,8 @@ class IntegratedSpriteProcessor:
 
     def process(self, input_image, output_dir="output_processed",
                 distance_threshold=80, size_ratio_threshold=0.4,
-                alpha_threshold=50, min_area_ratio=0.0005, max_area_ratio=0.25):
+                alpha_threshold=50, min_area_ratio=0.0005, max_area_ratio=0.25,
+                output_sizes=None):
         """
         完整處理流程
 
@@ -720,6 +726,7 @@ class IntegratedSpriteProcessor:
             alpha_threshold: Alpha 通道二值化閾值
             min_area_ratio: 最小面積比例
             max_area_ratio: 最大面積比例
+            output_sizes: 輸出尺寸設定 (dict: name -> (max_size, w, h))
         """
         print(f"\n{'#'*60}")
         print(f"# Sprite Processor - 一站式處理工具")
@@ -737,7 +744,7 @@ class IntegratedSpriteProcessor:
         )
 
         # 執行尺寸調整
-        self.resize_sprites(original_dir, output_dir)
+        self.resize_sprites(original_dir, output_dir, size_configs=output_sizes)
 
         # 輸出總結
         print(f"\n{'='*60}")
@@ -745,9 +752,12 @@ class IntegratedSpriteProcessor:
         print(f"{'='*60}")
         print(f"輸出目錄: {output_dir}/")
         print(f"  ├── original_sprites/  ({len(sprite_paths)} 個原始 sprites)")
-        print(f"  ├── large/             ({len(sprite_paths)} 個 280×280)")
-        print(f"  ├── medium/            ({len(sprite_paths)} 個 240×240)")
-        print(f"  ├── small/             ({len(sprite_paths)} 個 96×74)")
+        
+        # 顯示輸出的尺寸目錄
+        sizes = output_sizes if output_sizes else self.SIZE_PRESETS
+        for size_name, (max_s, w, h) in sizes.items():
+            print(f"  ├── {size_name:<18} ({len(sprite_paths)} 個 {w}x{h}, max={max_s})")
+
         print(f"  ├── debug_background_removal.png")
         print(f"  └── detection_visualization.jpg")
         print(f"{'='*60}\n")
@@ -756,7 +766,8 @@ class IntegratedSpriteProcessor:
 
     def process_directory(self, input_dir, output_base_dir="output_batch",
                          distance_threshold=80, size_ratio_threshold=0.4,
-                         alpha_threshold=50, min_area_ratio=0.0005, max_area_ratio=0.25):
+                         alpha_threshold=50, min_area_ratio=0.0005, max_area_ratio=0.25,
+                         output_sizes=None):
         """
         批次處理整個目錄
 
@@ -768,6 +779,7 @@ class IntegratedSpriteProcessor:
             alpha_threshold: Alpha 通道二值化閾值
             min_area_ratio: 最小面積比例
             max_area_ratio: 最大面積比例
+            output_sizes: 輸出尺寸設定 (dict: name -> (max_size, w, h))
         """
         input_path = Path(input_dir)
         output_path = Path(output_base_dir)
@@ -824,7 +836,8 @@ class IntegratedSpriteProcessor:
                     size_ratio_threshold=size_ratio_threshold,
                     alpha_threshold=alpha_threshold,
                     min_area_ratio=min_area_ratio,
-                    max_area_ratio=max_area_ratio
+                    max_area_ratio=max_area_ratio,
+                    output_sizes=output_sizes
                 )
 
                 total_sprites += sprite_count
@@ -855,6 +868,35 @@ class IntegratedSpriteProcessor:
         print(f"{'#'*60}\n")
 
 
+def parse_sizes_arg(sizes_str):
+    """
+    解析尺寸參數字串
+    Format: name:max:w:h,name2:max:w:h
+    Example: large:260:280:280,custom:100:100:100
+    """
+    if not sizes_str:
+        return None
+        
+    sizes = {}
+    try:
+        for item in sizes_str.split(','):
+            parts = item.split(':')
+            if len(parts) != 4:
+                raise ValueError(f"Invalid format for size item: {item}")
+            
+            name = parts[0]
+            max_size = int(parts[1])
+            w = int(parts[2])
+            h = int(parts[3])
+            
+            sizes[name] = (max_size, w, h)
+        return sizes
+    except Exception as e:
+        print(f"Error parsing sizes argument: {e}")
+        print("Format should be: name:max_size:width:height,name2:...")
+        sys.exit(1)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='一站式 Sprite 處理工具：去背景 → 分割 → 多尺寸調整',
@@ -865,6 +907,9 @@ def main():
     %(prog)s input.png
     %(prog)s input.png --output my_output
     %(prog)s input.png --distance 100 --size-ratio 0.5
+
+  自訂輸出尺寸:
+    %(prog)s input.png --sizes "icon:64:64:64,card:200:200:300"
 
   批次處理目錄:
     %(prog)s --batch input_dir
@@ -917,6 +962,10 @@ def main():
         default=0.25,
         help='最大面積比例閾值，過濾掉太大的區域，預設: 0.25'
     )
+    parser.add_argument(
+        '--sizes',
+        help='自訂輸出尺寸 (格式: name:max_size:width:height,name2:...)，例如: large:260:280:280,icon:64:64:64'
+    )
 
     args = parser.parse_args()
 
@@ -929,6 +978,9 @@ def main():
     if not args.batch and not args.input_image:
         parser.print_help()
         sys.exit(1)
+        
+    # 解析尺寸參數
+    output_sizes = parse_sizes_arg(args.sizes)
 
     try:
         # 建立處理器
@@ -949,7 +1001,8 @@ def main():
                 size_ratio_threshold=args.size_ratio,
                 alpha_threshold=args.alpha_threshold,
                 min_area_ratio=args.min_area_ratio,
-                max_area_ratio=args.max_area_ratio
+                max_area_ratio=args.max_area_ratio,
+                output_sizes=output_sizes
             )
         else:
             # 單一檔案模式
@@ -966,7 +1019,8 @@ def main():
                 size_ratio_threshold=args.size_ratio,
                 alpha_threshold=args.alpha_threshold,
                 min_area_ratio=args.min_area_ratio,
-                max_area_ratio=args.max_area_ratio
+                max_area_ratio=args.max_area_ratio,
+                output_sizes=output_sizes
             )
 
     except KeyboardInterrupt:

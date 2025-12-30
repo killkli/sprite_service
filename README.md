@@ -117,6 +117,19 @@ An automated script is provided to verify the full pipeline (upload -> process -
 python3 api_test_script.py
 ```
 
+#### Custom Output Sizes
+You can now specify custom output sizes via the API or CLI. The format is a dictionary or JSON string mapping a name to `[max_side, canvas_width, canvas_height]`.
+
+**CLI Example:**
+```bash
+python3 worker/sprite_processor.py input.png --sizes "icon:64:64:64,card:200:200:300"
+```
+
+**API Example (JSON string in `output_sizes_json` form field):**
+```json
+{"tiny": [32, 32, 32], "large_hd": [512, 512, 512]}
+```
+
 #### Android Development
 For Android app development instructions, please refer to [android_app/README.md](android_app/README.md) and [android_app/SETUP.md](android_app/SETUP.md).
 
@@ -227,6 +240,19 @@ sprite_service/
 python3 api_test_script.py
 ```
 該腳本會透過前端 API (Port 3000) 發送請求，模擬真實使用者行為。
+
+#### 自訂輸出尺寸 (Custom Sizes)
+現在支援透過 API 或 CLI 指定自訂的輸出尺寸。格式為將名稱映射至 `[最大邊長, 畫布寬, 畫布高]`。
+
+**CLI 使用範例:**
+```bash
+python3 worker/sprite_processor.py input.png --sizes "icon:64:64:64,card:200:200:300"
+```
+
+**API 使用範例 (於 `output_sizes_json` 表單欄位傳送 JSON 字串):**
+```json
+{"tiny": [32, 32, 32], "large_hd": [512, 512, 512]}
+```
 
 #### Android 開發
 關於 Android 應用程式的開發說明，請參考 [android_app/README.md](android_app/README.md) 與 [android_app/SETUP.md](android_app/SETUP.md)。
