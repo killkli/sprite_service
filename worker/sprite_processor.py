@@ -363,11 +363,18 @@ class IntegratedSpriteProcessor:
         print(f"\n✓ 所有尺寸調整完成")
 
     def _resize_and_center(self, image, max_size, canvas_width, canvas_height):
-        """調整圖片大小並置中"""
+        """調整圖片大小並置中
+        
+        Resize image so that the longer side equals max_size (both upscale and downscale),
+        then center it on a canvas of specified dimensions.
+        將圖片縮放使長邊等於 max_size（支援放大和縮小），然後置中於指定尺寸的畫布上。
+        """
         orig_width, orig_height = image.size
         longer_side = max(orig_width, orig_height)
 
-        if longer_side > max_size:
+        # Always scale to max_size (both upscale and downscale)
+        # 始終縮放到 max_size（支援放大和縮小）
+        if longer_side != max_size and longer_side > 0:
             scale = max_size / longer_side
             new_width = int(orig_width * scale)
             new_height = int(orig_height * scale)

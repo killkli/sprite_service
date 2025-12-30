@@ -87,6 +87,13 @@
     "minLineLengthRatio": {
       "label": "最小線長比例",
       "description": "線條需達到圖片寬/高的最小比例才會被偵測。"
+    },
+    "outputSizes": {
+      "title": "自訂輸出尺寸",
+      "description": "啟用後可自訂輸出素材的尺寸。預設輸出 Large (256)、Medium (128)、Small (64) 三種尺寸。",
+      "namePlaceholder": "名稱",
+      "maxPlaceholder": "最大",
+      "addSize": "新增尺寸"
     }
   },
   "status": {

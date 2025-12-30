@@ -49,6 +49,42 @@ const gridPadding = ref<number>(2)
 const gridLineThreshold = ref<number>(50)
 const gridMinLineLengthRatio = ref<number>(0.3)
 
+// === Custom Output Sizes ===
+interface CustomSize {
+  name: string
+  width: number
+  height: number
+  maxDimension: number
+}
+
+const useCustomSizes = ref<boolean>(false)
+const customSizes = ref<CustomSize[]>([
+  { name: 'large', width: 256, height: 256, maxDimension: 256 },
+  { name: 'medium', width: 128, height: 128, maxDimension: 128 },
+  { name: 'small', width: 64, height: 64, maxDimension: 64 }
+])
+
+function addCustomSize() {
+  customSizes.value.push({ name: '', width: 64, height: 64, maxDimension: 64 })
+}
+
+function removeCustomSize(index: number) {
+  if (customSizes.value.length > 1) {
+    customSizes.value.splice(index, 1)
+  }
+}
+
+function getOutputSizesJson(): string | null {
+  if (!useCustomSizes.value) return null
+  const sizes: Record<string, number[]> = {}
+  for (const size of customSizes.value) {
+    if (size.name.trim()) {
+      sizes[size.name.trim()] = [size.width, size.height, size.maxDimension]
+    }
+  }
+  return Object.keys(sizes).length > 0 ? JSON.stringify(sizes) : null
+}
+
 // Model options
 const modelOptions = computed(() => [
   { label: t('generate.modelFast'), value: 'nano-banana' },
@@ -91,6 +127,12 @@ async function uploadFile() {
   formData.append('file', file.value)
 
   let endpoint = '/api/process'
+
+  // Add custom output sizes if enabled
+  const outputSizesJson = getOutputSizesJson()
+  if (outputSizesJson) {
+    formData.append('output_sizes_json', outputSizesJson)
+  }
 
   if (uploadSplitMode.value === 'grid') {
     // Grid split mode
@@ -203,6 +245,10 @@ async function generateSprite() {
   try {
     let response: any
 
+    // Get custom output sizes if enabled
+    const outputSizesJson = getOutputSizesJson()
+    const outputSizes = outputSizesJson ? JSON.parse(outputSizesJson) : undefined
+
     if (useReferenceImage.value && referenceFile.value) {
       const formData = new FormData()
       formData.append('prompt', prompt.value)
@@ -215,6 +261,9 @@ async function generateSprite() {
       formData.append('alpha_threshold', alphaThreshold.value.toString())
       formData.append('min_area_ratio', minAreaRatio.value.toString())
       formData.append('max_area_ratio', maxAreaRatio.value.toString())
+      if (outputSizesJson) {
+        formData.append('output_sizes_json', outputSizesJson)
+      }
 
       const { data, error } = await useFetch('/api/generate/with-reference', {
         method: 'POST',
@@ -237,7 +286,8 @@ async function generateSprite() {
           size_ratio_threshold: sizeRatioThreshold.value,
           alpha_threshold: alphaThreshold.value,
           min_area_ratio: minAreaRatio.value,
-          max_area_ratio: maxAreaRatio.value
+          max_area_ratio: maxAreaRatio.value,
+          output_sizes: outputSizes
         }
       })
 
@@ -499,6 +549,74 @@ function changeLanguage(lang: string) {
                       <p class="text-xs text-gray-500 mt-1">{{ t('params.minLineLengthRatio.description') }}</p>
                     </div>
                   </template>
+
+                  <!-- Custom Output Sizes -->
+                  <div class="border-t pt-4 mt-4">
+                    <div class="flex items-center justify-between mb-2">
+                      <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-400">{{ t('params.outputSizes.title') }}</h4>
+                      <UToggle v-model="useCustomSizes" />
+                    </div>
+                    <p class="text-xs text-gray-500 mb-3">{{ t('params.outputSizes.description') }}</p>
+
+                    <div v-if="useCustomSizes" class="space-y-3">
+                      <div
+                        v-for="(size, index) in customSizes"
+                        :key="index"
+                        class="flex items-center gap-2 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg"
+                      >
+                        <UInput
+                          v-model="size.name"
+                          :placeholder="t('params.outputSizes.namePlaceholder')"
+                          size="sm"
+                          class="w-24"
+                        />
+                        <div class="flex items-center gap-1">
+                          <UInput
+                            v-model.number="size.width"
+                            type="number"
+                            :min="16"
+                            :max="1024"
+                            size="sm"
+                            class="w-16"
+                          />
+                          <span class="text-gray-400">×</span>
+                          <UInput
+                            v-model.number="size.height"
+                            type="number"
+                            :min="16"
+                            :max="1024"
+                            size="sm"
+                            class="w-16"
+                          />
+                        </div>
+                        <UInput
+                          v-model.number="size.maxDimension"
+                          type="number"
+                          :min="16"
+                          :max="1024"
+                          size="sm"
+                          class="w-16"
+                          :placeholder="t('params.outputSizes.maxPlaceholder')"
+                        />
+                        <UButton
+                          v-if="customSizes.length > 1"
+                          icon="i-heroicons-x-mark"
+                          color="red"
+                          variant="ghost"
+                          size="xs"
+                          @click="removeCustomSize(index)"
+                        />
+                      </div>
+                      <UButton
+                        icon="i-heroicons-plus"
+                        variant="soft"
+                        size="sm"
+                        @click="addCustomSize"
+                      >
+                        {{ t('params.outputSizes.addSize') }}
+                      </UButton>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -687,6 +805,74 @@ function changeLanguage(lang: string) {
                     </div>
                     <URange v-model="maxAreaRatio" :min="0.05" :max="0.9" :step="0.05" />
                     <p class="text-xs text-gray-500 mt-1">{{ t('params.maxAreaRatio.description') }}</p>
+                  </div>
+
+                  <!-- Custom Output Sizes -->
+                  <div class="border-t pt-4 mt-4">
+                    <div class="flex items-center justify-between mb-2">
+                      <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-400">{{ t('params.outputSizes.title') }}</h4>
+                      <UToggle v-model="useCustomSizes" />
+                    </div>
+                    <p class="text-xs text-gray-500 mb-3">{{ t('params.outputSizes.description') }}</p>
+
+                    <div v-if="useCustomSizes" class="space-y-3">
+                      <div
+                        v-for="(size, index) in customSizes"
+                        :key="index"
+                        class="flex items-center gap-2 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg"
+                      >
+                        <UInput
+                          v-model="size.name"
+                          :placeholder="t('params.outputSizes.namePlaceholder')"
+                          size="sm"
+                          class="w-24"
+                        />
+                        <div class="flex items-center gap-1">
+                          <UInput
+                            v-model.number="size.width"
+                            type="number"
+                            :min="16"
+                            :max="1024"
+                            size="sm"
+                            class="w-16"
+                          />
+                          <span class="text-gray-400">×</span>
+                          <UInput
+                            v-model.number="size.height"
+                            type="number"
+                            :min="16"
+                            :max="1024"
+                            size="sm"
+                            class="w-16"
+                          />
+                        </div>
+                        <UInput
+                          v-model.number="size.maxDimension"
+                          type="number"
+                          :min="16"
+                          :max="1024"
+                          size="sm"
+                          class="w-16"
+                          :placeholder="t('params.outputSizes.maxPlaceholder')"
+                        />
+                        <UButton
+                          v-if="customSizes.length > 1"
+                          icon="i-heroicons-x-mark"
+                          color="red"
+                          variant="ghost"
+                          size="xs"
+                          @click="removeCustomSize(index)"
+                        />
+                      </div>
+                      <UButton
+                        icon="i-heroicons-plus"
+                        variant="soft"
+                        size="sm"
+                        @click="addCustomSize"
+                      >
+                        {{ t('params.outputSizes.addSize') }}
+                      </UButton>
+                    </div>
                   </div>
                 </div>
               </div>

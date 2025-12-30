@@ -87,6 +87,13 @@
     "minLineLengthRatio": {
       "label": "Min Line Length Ratio",
       "description": "Minimum line length as a ratio of image width/height to be detected."
+    },
+    "outputSizes": {
+      "title": "Custom Output Sizes",
+      "description": "Enable to customize output sprite sizes. Default outputs Large (256), Medium (128), Small (64).",
+      "namePlaceholder": "Name",
+      "maxPlaceholder": "Max",
+      "addSize": "Add Size"
     }
   },
   "status": {
